@@ -1,0 +1,63 @@
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	width: 100%;
+	min-width: 320px;
+	min-height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	min-height: 100vh;
+	font-family:
+		Inter,
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		"Segoe UI",
+		sans-serif;
+	background: #f5f7fa;
+}
+
+button,
+input,
+textarea {
+	font: inherit;
+}
+
+.sql-code {
+	width: 100%;
+	margin: 16px 0 0;
+	padding: 18px 20px;
+	overflow-x: auto;
+
+	color: #e6edf3 !important;
+	background-color: #0d1117 !important;
+
+	border: 1px solid #30363d;
+	border-radius: 8px;
+
+	font-family:
+		Consolas,
+		Monaco,
+		"Courier New",
+		monospace;
+	font-size: 14px;
+	line-height: 1.7;
+
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	tab-size: ;
+}
+
+.sql-code code {
+	color: inherit !important;
+	background: transparent !important;
+	font-family: inherit;
+}
+

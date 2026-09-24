@@ -1,0 +1,37 @@
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+.venv/
+venv/
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+#VSCode
+.vscode/
+
+# Frontend
+frontend/node_modules/
+
+frontend/dist/
+
+# Vite
+*.tsbuildinfo
+
+#Windows
+Thumbs.db
+Desktop.ini
+
+# Environment
+.env
+.env.*
+
