@@ -16,7 +16,10 @@ import {
 } from "antd";
 
 import { queryDataWithAI } from "../api/ai";
+import ChartPreview from "../components/ChartPreview";
 import ResultTable from "../components/ResultTable";
+
+import { getChartData } from "../utils/chart";
 
 import type { AIQueryResponse } from "../types/ai";
 
@@ -37,6 +40,13 @@ function ChatPage() {
 		useState<AIQueryResponse | null>(
 			null,
 		);
+
+	const chartData = result
+		? getChartData(
+			result.columns,
+			result.rows,
+		)
+		: null;
 
 	const handleSubmit = async () => {
 		const normalizedQuestion =
@@ -244,7 +254,9 @@ function ChatPage() {
 
 						<Tag color="green">
 							SQL耗时{" "}
-							{result.execution_time_ms}
+							{result.execution_time_ms.toFixed(
+								3,
+							)}{" "}
 							ms
 						</Tag>
 
@@ -255,6 +267,15 @@ function ChatPage() {
 						)}
 					</Space>
 				</Card>
+
+				{chartData !== null && (
+					<Card title="数据可视化">
+						<ChartPreview
+							columns={result.columns}
+							rows={result.rows}
+						/>
+					</Card>
+				)}
 
 				<Card title="查询结果">
 					<ResultTable
