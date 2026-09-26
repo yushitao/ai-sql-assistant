@@ -10,6 +10,8 @@ ALLOWED_TABLES = {
 FORBIDDEN_TABLES = {
     "users",
     "sql_audits",
+    "chat_sessions",
+    "chat_messages",
     "sqlite_master",
     "sqlite_schema",
     "sqlite_temp_master",

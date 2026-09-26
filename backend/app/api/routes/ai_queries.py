@@ -1,9 +1,13 @@
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.dependencies import CurrentUser, DatabaseSession
+from app.models.chat_message import ChatMessage
+from app.models.chat_session import ChatSession
 from app.models.sql_audit import SQLAudit
 from app.schemas.ai_query import (
     AIQueryRequest,
@@ -39,6 +43,51 @@ def query_data_with_ai(
             question=request_data.question,
         )
 
+        chat_session: ChatSession | None = None
+
+        if request_data.session_id is not None:
+            statement = select(ChatSession).where(
+                ChatSession.id == request_data.session_id,
+                ChatSession.user_id == current_user.id,
+            )
+
+            chat_session = db.scalar(statement)
+
+            if chat_session is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="会话不存在",
+                )
+
+        if chat_session is None:
+            session_title = request_data.question.strip()[:50]
+
+            chat_session = ChatSession(
+                user_id=current_user.id,
+                title=session_title,
+            )
+
+            db.add(chat_session)
+            db.flush()
+
+        chat_session.updated_at = datetime.now(timezone.utc)
+
+        chat_message = ChatMessage(
+            session_id=chat_session.id,
+            question=request_data.question,
+            generated_sql=result.generated_sql,
+            sql_explanation=result.sql_explanation,
+            summary=result.summary,
+            columns_data=result.columns,
+            rows_data=result.rows,
+            row_count=result.row_count,
+            execution_time_ms=(result.execution_time_ms),
+            truncated=result.truncated,
+        )
+
+        db.add(chat_message)
+        db.flush()
+
         audit = SQLAudit(
             user_id=current_user.id,
             sql_text=result.generated_sql,
@@ -53,6 +102,8 @@ def query_data_with_ai(
         db.commit()
 
         return AIQueryResponse(
+            session_id=chat_session.id,
+            message_id=chat_message.id,
             question=request_data.question,
             generated_sql=result.generated_sql,
             sql_explanation=result.sql_explanation,

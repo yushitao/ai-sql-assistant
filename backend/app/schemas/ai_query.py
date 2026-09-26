@@ -12,6 +12,11 @@ class AIQueryRequest(BaseModel):
         ],
     )
 
+    session_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
+
 
 class GeneratedSQL(BaseModel):
     sql: str = Field(
@@ -26,6 +31,9 @@ class GeneratedSQL(BaseModel):
 
 
 class AIQueryResponse(BaseModel):
+    session_id: int
+    message_id: int
+
     question: str
     generated_sql: str
     sql_explanation: str

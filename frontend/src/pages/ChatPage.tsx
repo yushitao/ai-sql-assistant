@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, } from "react";
 import { useNavigate } from "react-router-dom";
 
 import axios from "axios";
@@ -16,6 +16,13 @@ import {
 } from "antd";
 
 import { queryDataWithAI } from "../api/ai";
+import {
+	getChatSession,
+	getChatSessions,
+	type ChatMessage,
+	type ChatSession,
+} from "../api/chat";
+
 import ChartPreview from "../components/ChartPreview";
 import ResultTable from "../components/ResultTable";
 
@@ -23,7 +30,7 @@ import { getChartData } from "../utils/chart";
 
 import type { AIQueryResponse } from "../types/ai";
 
-const { Header, Content } = Layout;
+const { Header, Sider, Content } = Layout;
 const { Paragraph, Text, Title } = Typography;
 const { TextArea } = Input;
 
@@ -41,12 +48,91 @@ function ChatPage() {
 			null,
 		);
 
+	const [sessions, setSessions] =
+		useState<ChatSession[]>([]);
+
+	const [currentSessionId, setCurrentSessionId] =
+		useState<number | null>(null);
+
+	const [messages,setMessages] =
+		useState<ChatMessage[]>([]);
+
+	const [sessionsLoading, setSessionsLoading] =
+		useState(false);
+
 	const chartData = result
 		? getChartData(
 			result.columns,
 			result.rows,
 		)
 		: null;
+
+	const loadSessions = async () => {
+		setSessionsLoading(true);
+		
+		try {
+			const data = await getChatSessions();
+			setSessions(data);
+		} catch {
+			message.error("会话列表加载失败");
+		} finally {
+			setSessionsLoading(false);
+		}
+	};
+
+	const handleNewSession = () => {
+		setCurrentSessionId(null);
+		setMessages([]);
+		setResult(null);
+		setQuestion("");
+	};
+
+	const handleSelectSession = async (
+		sessionId: number,
+	) => {
+		try {
+			const detail = await getChatSession(
+				sessionId,
+			);
+
+			setCurrentSessionId(detail.id);
+			setMessages(detail.messages);
+			setQuestion("");
+
+			const latestMessage =
+				detail.messages[
+					detail.messages.length - 1
+				];
+			
+			if (!latestMessage) {
+				setResult(null);
+				return;
+			}
+
+			setResult({
+				session_id: detail.id,
+				message_id: latestMessage.id,
+				question: latestMessage.question,
+				generated_sql:
+					latestMessage.generated_sql,
+				sql_explanation:
+					latestMessage.sql_explanation,
+				summary: latestMessage.summary,
+				columns: latestMessage.columns,
+				rows: latestMessage.rows,
+				row_count: latestMessage.row_count,
+				execution_time_ms:
+					latestMessage.execution_time_ms,
+				truncated: latestMessage.truncated,
+			});
+		} catch {
+			message.error("会话详情加载失败");
+		}
+	};
+
+	useEffect(() => {
+		void loadSessions();
+	}, []);
 
 	const handleSubmit = async () => {
 		const normalizedQuestion =
@@ -64,9 +150,23 @@ function ChatPage() {
 			const response =
 				await queryDataWithAI({
 					question: normalizedQuestion,
+					session_id: currentSessionId,
 				});
 
 			setResult(response);
+
+			setCurrentSessionId(
+				response.session_id,
+			);
+			setQuestion("");
+
+			await loadSessions();
+			const detail = await getChatSession(
+				response.session_id,
+			);
+
+			setMessages(detail.messages);
+
 		} catch (error: unknown) {
 			if (axios.isAxiosError(error)) {
 				const detail =
@@ -100,6 +200,7 @@ function ChatPage() {
 			replace: true,
 		});
 	};
+
 
 	return (
 		<Layout
@@ -146,6 +247,60 @@ function ChatPage() {
 		</Space>
 		</Header>
 
+		<Layout>
+		<Sider
+			width={280}
+			theme="light"
+			style={{
+				padding: 16,
+				borderRight:
+					"1px solid #f0f0f0",
+			}}
+		>
+		<Button
+			type="primary"
+			block
+			onClick={handleNewSession}
+			style={{
+				marginBottom: 16,
+			}}
+		>
+			新建分析
+		</Button>
+
+		<div>
+			{sessionsLoading ? (
+				<Spin />
+			) : (
+				sessions.map((session) => (
+					<Button
+						key={session.id}
+						type={
+							session.id === currentSessionId
+							? "primary"
+							: "text"
+						}
+						block
+						onClick={() =>
+							void handleSelectSession(
+								session.id,
+							)
+						}
+						style={{
+							height: "auto",
+							marginBottom: 8,
+							padding: "10px 12px",
+							textAlign: "left",
+							whiteSpace: "normal",
+						}}
+					>
+						{session.title}
+					</Button>
+				))
+			)}
+		</div>
+		</Sider>
+
 		<Content
 			style={{
 				width: "100%",
@@ -160,6 +315,12 @@ function ChatPage() {
 				marginBottom: 24,
 			}}
 		>
+			{currentSessionId !==null && (
+				<Text type="secondary">
+					当前会话共 {messages.length} 条分析记录
+				</Text>
+			)}
+
 		<TextArea
 			value={question}
 			disabled={loading}
@@ -309,6 +470,7 @@ function ChatPage() {
 			</Space>
 		)}
 		</Content>
+		</Layout>
 		</Layout>
 	);
 }
