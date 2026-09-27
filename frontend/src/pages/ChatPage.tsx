@@ -288,13 +288,28 @@ function ChatPage() {
 						}
 						style={{
 							height: "auto",
+							minHeight: 42,
 							marginBottom: 8,
 							padding: "10px 12px",
 							textAlign: "left",
 							whiteSpace: "normal",
+							borderRadius: 6,
+							overflow: "hidden",
 						}}
 					>
-						{session.title}
+						<Typography.Text
+							ellipsis={{
+								tooltip: session.title,
+							}}
+							style={{
+								display: "block",
+								width: "100%",
+								color: "inherit",
+								textAlign: "left",
+							}}
+						>
+							{session.title}
+						</Typography.Text>
 					</Button>
 				))
 			)}
