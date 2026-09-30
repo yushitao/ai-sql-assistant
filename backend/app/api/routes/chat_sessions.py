@@ -93,3 +93,27 @@ def get_chat_session(
     )
 
 
+@router.delete(
+    "/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_chat_session(
+    session_id: int,
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> None:
+    statement = select(ChatSession).where(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id,
+    )
+
+    chat_session = db.scalar(statement)
+
+    if chat_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="会话不存在",
+        )
+
+    db.delete(chat_session)
+    db.commit()

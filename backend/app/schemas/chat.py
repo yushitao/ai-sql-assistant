@@ -35,4 +35,3 @@ class ChatSessionDetailResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     messages: list[ChatMessageResponse]
-

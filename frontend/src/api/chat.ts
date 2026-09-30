@@ -53,3 +53,11 @@ export async function getChatSession(
 	return response.data;
 }
 
+export async function deleteChatSession(
+	sessionId: number,
+): Promise<void> {
+	await client.delete(
+		`/chat/sessions/${sessionId}`,
+	);
+}
+

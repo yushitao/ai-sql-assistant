@@ -9,13 +9,19 @@ import {
 	Input,
 	Layout,
 	message,
+	Popconfirm,
 	Space,
 	Spin,
 	Typography,
 } from "antd";
 
+import {
+	DeleteOutlined,
+} from "@ant-design/icons";
+
 import { queryDataWithAI } from "../api/ai";
 import {
+	deleteChatSession,
 	getChatSession,
 	getChatSessions,
 	type ChatMessage,
@@ -105,6 +111,47 @@ function ChatPage() {
 			block: "end",
 		});
 	}, [messages]);
+
+	const handleDeleteSession = async (
+		sessionId: number,
+	) => {
+		try {
+			await deleteChatSession(
+				sessionId,
+			);
+
+			setSessions((currentSessions) =>
+				currentSessions.filter(
+					(session) =>
+					session.id !== sessionId,
+				),
+			);
+
+			if (
+				currentSessionId === sessionId
+			) {
+				setCurrentSessionId(null);
+				setMessages([]);
+				setQuestion("");
+				setQueryError(null);
+			}
+
+			message.success("会话已删除");
+		} catch (error: unknown) {
+			if (axios.isAxiosError(error)) {
+				const detail =
+					error.response?.data?.detail;
+
+				message.error(
+					typeof detail === "string"
+					? detail
+					: "删除会话失败",
+				);
+			} else {
+				message.error("删除会话失败");
+			}
+		}
+	};
 
 	const handleSubmit = async () => {
 		if (loading) {
@@ -245,52 +292,98 @@ function ChatPage() {
 			新建分析
 		</Button>
 
-		<div>
-			{sessionsLoading ? (
+		{sessionsLoading ? (
+			<div
+				style={{
+					display: "flex",
+						justifyContent: "center",
+						padding: 24,
+				}}
+			>
 				<Spin />
-			) : (
-				sessions.map((session) => (
-					<Button
-						key={session.id}
-						type={
-							session.id === currentSessionId
-							? "primary"
-							: "text"
-						}
-						block
-						onClick={() =>
-							void handleSelectSession(
-								session.id,
-							)
-						}
-						style={{
-							height: "auto",
-							minHeight: 42,
-							marginBottom: 8,
-							padding: "10px 12px",
-							textAlign: "left",
-							whiteSpace: "normal",
-							borderRadius: 6,
-							overflow: "hidden",
-						}}
-					>
-						<Typography.Text
-							ellipsis={{
-								tooltip: session.title,
-							}}
+			</div>
+		) : (
+			<div>
+				{sessions.map((session) => {
+					const isActive =
+					session.id === currentSessionId;
+
+					return(
+						<div
+							key={session.id}
 							style={{
-								display: "block",
-								width: "100%",
-								color: "inherit",
-								textAlign: "left",
+								display: "flex",
+								alignItems: "center",
+								gap: 4,
+								marginBottom: 8,
 							}}
 						>
-							{session.title}
-						</Typography.Text>
-					</Button>
-				))
+							<Button
+								type={
+									isActive
+									? "primary"
+									: "text"
+								}
+								onClick={() =>
+									void handleSelectSession(
+										session.id,
+									)
+								}
+								style={{
+									flex: 1,
+										minWidth: 0,
+										height: 42,
+										padding: "0 12px",
+										overflow: "hidden",
+										borderRadius: 6,
+								}}
+							>
+								<Typography.Text
+									ellipsis={{
+										tooltip: session.title,
+									}}
+									style={{
+										display: "block",
+											width: "100%",
+											textAlign: "left",
+											color: isActive
+											? "#ffffff"
+											: "#262626",
+									}}
+								>
+									{session.title}
+								</Typography.Text>
+							</Button>
+
+							<Popconfirm
+								title="删除会话"
+								description="确定删除该会话及其全部分析记录吗？"
+								okText="删除"
+								cancelText="取消"
+								okButtonProps={{
+									danger: true,
+								}}
+								onConfirm={() =>
+									void handleDeleteSession(
+										session.id,
+									)
+								}
+							>
+								<Button
+									type="text"
+									danger
+									aria-label={`删除会话：${session.title}`}
+									icon={<DeleteOutlined/>}
+									onClick={(event) => {
+										event.stopPropagation();
+									}}
+								/>
+							</Popconfirm>
+						</div>
+					);
+				})}
+			</div>
 			)}
-		</div>
 		</Sider>
 
 		<Content
