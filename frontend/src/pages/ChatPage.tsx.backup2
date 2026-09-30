@@ -1,16 +1,17 @@
-import { useEffect, useState, useRef, } from "react";
+import { useEffect, useState, } from "react";
 import { useNavigate } from "react-router-dom";
 
 import axios from "axios";
 import {
-	Alert,
 	Button,
 	Card,
+	Collapse,
 	Input,
 	Layout,
 	message,
 	Space,
 	Spin,
+	Tag,
 	Typography,
 } from "antd";
 
@@ -22,23 +23,32 @@ import {
 	type ChatSession,
 } from "../api/chat";
 
+import ChartPreview from "../components/ChartPreview";
+import ResultTable from "../components/ResultTable";
+
+import { getChartData } from "../utils/chart";
+
+import type { AIQueryResponse } from "../types/ai";
+
 import AnalysisMessage from "../components/AnalysisMessage";
 
 const { Header, Sider, Content } = Layout;
-const { Text, Title } = Typography;
+const { Paragraph, Text, Title } = Typography;
 const { TextArea } = Input;
 
 function ChatPage() {
 	const navigate = useNavigate();
-
-	const messagesEndRef =
-		useRef<HTMLDivElement | null>(null);
 
 	const [question, setQuestion] =
 		useState("");
 
 	const [loading, setLoading] =
 		useState(false);
+
+	const [result, setResult] = 
+		useState<AIQueryResponse | null>(
+			null,
+		);
 
 	const [sessions, setSessions] =
 		useState<ChatSession[]>([]);
@@ -51,9 +61,13 @@ function ChatPage() {
 
 	const [sessionsLoading, setSessionsLoading] =
 		useState(false);
-	
-	const [queryError, setQueryError] =
-		useState<string | null>(null);
+
+	const chartData = result
+		? getChartData(
+			result.columns,
+			result.rows,
+		)
+		: null;
 
 	const loadSessions = async () => {
 		setSessionsLoading(true);
@@ -71,6 +85,7 @@ function ChatPage() {
 	const handleNewSession = () => {
 		setCurrentSessionId(null);
 		setMessages([]);
+		setResult(null);
 		setQuestion("");
 	};
 
@@ -86,6 +101,32 @@ function ChatPage() {
 			setMessages(detail.messages);
 			setQuestion("");
 
+			const latestMessage =
+				detail.messages[
+					detail.messages.length - 1
+				];
+			
+			if (!latestMessage) {
+				setResult(null);
+				return;
+			}
+
+			setResult({
+				session_id: detail.id,
+				message_id: latestMessage.id,
+				question: latestMessage.question,
+				generated_sql:
+					latestMessage.generated_sql,
+				sql_explanation:
+					latestMessage.sql_explanation,
+				summary: latestMessage.summary,
+				columns: latestMessage.columns,
+				rows: latestMessage.rows,
+				row_count: latestMessage.row_count,
+				execution_time_ms:
+					latestMessage.execution_time_ms,
+				truncated: latestMessage.truncated,
+			});
 		} catch {
 			message.error("会话详情加载失败");
 		}
@@ -95,21 +136,7 @@ function ChatPage() {
 		void loadSessions();
 	}, []);
 
-	useEffect(() => {
-		if (messages.length === 0) {
-			return;
-		}
-
-		messagesEndRef.current?.scrollIntoView({
-			behavior: "smooth",
-			block: "end",
-		});
-	}, [messages]);
-
 	const handleSubmit = async () => {
-		if (loading) {
-			return;
-		}
 		const normalizedQuestion =
 			question.trim();
 		
@@ -119,7 +146,7 @@ function ChatPage() {
 		}
 
 		setLoading(true);
-		setQueryError(null);
+		setResult(null);
 
 		try {
 			const response =
@@ -127,6 +154,8 @@ function ChatPage() {
 					question: normalizedQuestion,
 					session_id: currentSessionId,
 				});
+
+			setResult(response);
 
 			setCurrentSessionId(
 				response.session_id,
@@ -141,24 +170,20 @@ function ChatPage() {
 			setMessages(detail.messages);
 
 		} catch (error: unknown) {
-			let errorText =
-				"AI查询失败，请稍后重试";
-
 			if (axios.isAxiosError(error)) {
 				const detail =
 					error.response?.data?.detail;
 
-				if (typeof detail === "string") {
-					errorText = detail;
-				} else if(error.response?.status) {
-					errorText =
-						`AI查询失败，HTTP状态码：` +
-							error.response.status;
-				}
+				message.error(
+					typeof detail === "string"
+						? detail
+						: "AI查询失败，请稍后重试",
+				);
+			} else {
+				message.error(
+					"AI查询失败，请稍后重试",
+				);
 			}
-
-			setQueryError(errorText);
-			message.error(errorText);
 		} finally {
 			setLoading(false);
 		}
@@ -331,11 +356,9 @@ function ChatPage() {
 			onKeyDown={(event) => {
 				if (
 					event.ctrlKey &&
-					event.key === "Enter" &&
-					!loading
+					event.key === "Enter"
 				) {
-					event.preventDefault();
-					void handleSubmit();
+					handleSubmit();
 				}
 			}}
 		/>
@@ -357,31 +380,13 @@ function ChatPage() {
 			type="primary"
 			size="large"
 			loading={loading}
-			disabled={loading}
-			onClick={() =>
-				void handleSubmit()
-			}
+			onClick={handleSubmit}
 		>
 			开始分析
 		</Button>
 		</div>
 		</Card>
 
-		{queryError && (
-			<Alert
-				type="error"
-				showIcon
-				closable
-				message="分析请求失败"
-				description={queryError}
-				onClose={() => {
-					setQueryError(null);
-				}}
-				style={{
-					marginBottom: 16,
-				}}
-			/>
-		)}
 		{loading && (
 			<Card>
 				<div
@@ -403,41 +408,84 @@ function ChatPage() {
 			</Card>
 		)}
 
-		{!loading && messages.length === 0 && (
-			<Card>
-				<div
-					style={{
-						minHeight: 180,
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						color: "#8c8c8c",
-					}}
-				>
-					输入一个数据分析问题开始新会话
-				</div>
-			</Card>
-		)}
-
-		{messages.length > 0 && (
+		{result && (
 			<Space
 				direction="vertical"
-				size={32}
+				size="large"
 				style={{
 					width: "100%",
 				}}
 			>
-				{messages.map((chatMessage) => (
-					<AnalysisMessage
-						key={chatMessage.id}
-						message={chatMessage}
+				<Card title="分析总结">
+					<Paragraph
+						style={{
+							fontSize: 16,
+						}}
+					>
+						{result.summary}
+					</Paragraph>
+
+					<Space wrap>
+						<Tag color="blue">
+							返回 {result.row_count} 行
+						</Tag>
+
+						<Tag color="green">
+							SQL耗时{" "}
+							{result.execution_time_ms.toFixed(
+								3,
+							)}{" "}
+							ms
+						</Tag>
+
+						{result.truncated && (
+							<Tag color="orange">
+								结果已截断
+							</Tag>
+						)}
+					</Space>
+				</Card>
+
+				{chartData !== null && (
+					<Card title="数据可视化">
+						<ChartPreview
+							columns={result.columns}
+							rows={result.rows}
+						/>
+					</Card>
+				)}
+
+				<Card title="查询结果">
+					<ResultTable
+						columns={result.columns}
+						rows={result.rows}
 					/>
-				))}
+				</Card>
+
+				<Collapse
+					items={[
+						{
+							key: "sql",
+							label:
+								"查看生成的SQL和解释",
+							children: (
+								<>
+									<Paragraph>
+										{result.sql_explanation}
+									</Paragraph>
+
+									<pre className="sql-code">
+										<code>
+											{result.generated_sql}
+										</code>
+									</pre>
+								</>
+							),
+						},
+					]}
+				/>
 			</Space>
 		)}
-
-		<div ref={messagesEndRef} />
-
 		</Content>
 		</Layout>
 		</Layout>
