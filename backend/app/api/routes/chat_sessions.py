@@ -15,6 +15,7 @@ from app.schemas.chat import (
     ChatMessageResponse,
     ChatSessionDetailResponse,
     ChatSessionResponse,
+    ChatSessionUpdateRequest,
 )
 
 router = APIRouter(
@@ -91,6 +92,45 @@ def get_chat_session(
         updated_at=chat_session.updated_at,
         messages=messages,
     )
+
+
+@router.patch(
+    "/{session_id}",
+    response_model=ChatSessionResponse,
+)
+def update_chat_session(
+    session_id: int,
+    request_data: ChatSessionUpdateRequest,
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> ChatSession:
+    statement = select(ChatSession).where(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id,
+    )
+
+    chat_session = db.scalar(statement)
+
+    if chat_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="会话不存在",
+        )
+
+    normalized_title = request_data.title.strip()
+
+    if not normalized_title:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="会话标题不能为空",
+        )
+
+    chat_session.title = normalized_title
+
+    db.commit()
+    db.refresh(chat_session)
+
+    return chat_session
 
 
 @router.delete(

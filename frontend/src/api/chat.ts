@@ -53,6 +53,23 @@ export async function getChatSession(
 	return response.data;
 }
 
+export interface UpdateChatSessionRequest {
+	title: string;
+}
+
+export async function updateChatSession(
+	sessionId: number,
+	request: UpdateChatSessionRequest,
+): Promise<ChatSession> {
+	const response =
+		await client.patch<ChatSession>(
+			`/chat/sessions/${sessionId}`,
+			request,
+		);
+
+		return response.data;
+}
+
 export async function deleteChatSession(
 	sessionId: number,
 ): Promise<void> {

@@ -16,14 +16,22 @@ import {
 } from "antd";
 
 import {
+	CheckOutlined,
+	CloseOutlined,
 	DeleteOutlined,
+	EditOutlined,
 } from "@ant-design/icons";
+
+import {
+	QUERY_TEMPLATES,
+} from "../constants/queryTemplates";
 
 import { queryDataWithAI } from "../api/ai";
 import {
 	deleteChatSession,
 	getChatSession,
 	getChatSessions,
+	updateChatSession,
 	type ChatMessage,
 	type ChatSession,
 } from "../api/chat";
@@ -60,6 +68,12 @@ function ChatPage() {
 	
 	const [queryError, setQueryError] =
 		useState<string | null>(null);
+
+	const [editingSessionId, setEditingSessionId] =
+		useState<number | null>(null);
+
+	const [editingTitle, setEditingTitle] =
+		useState("");
 
 	const loadSessions = async () => {
 		setSessionsLoading(true);
@@ -112,6 +126,93 @@ function ChatPage() {
 		});
 	}, [messages]);
 
+	const handleStartRename = (
+		session: ChatSession,
+	) => {
+		setEditingSessionId(session.id);
+		setEditingTitle(session.title);
+	};
+
+	const handleCancelRename = () => {
+		setEditingSessionId(null);
+		setEditingTitle("");
+	};
+
+	const handleSaveRename = async (
+		sessionId: number,
+	) => {
+		const normalizedTitle =
+			editingTitle.trim();
+
+		if (!normalizedTitle) {
+			message.warning(
+				"会话标题不能为空",
+			);
+			return;
+		}
+
+		const originalSession =
+			sessions.find(
+				(session) =>
+				session.id === sessionId,
+			);
+
+		if (
+			originalSession &&
+				originalSession.title === normalizedTitle
+		) {
+			handleCancelRename();
+			return;
+		}
+
+		if (normalizedTitle.length > 200) {
+			message.warning(
+				"会话标题不能超过200个字符",
+			);
+			return;
+		}
+
+		try {
+			const updatedSession =
+				await updateChatSession(
+					sessionId,
+					{
+						title: normalizedTitle,
+					},
+				);
+
+			setSessions((currentSessions) =>
+							currentSessions.map((session) =>
+									    session.id === sessionId
+										    ? updatedSession
+										    : session,
+									   ),
+				   );
+
+			setEditingSessionId(null);
+			setEditingTitle("");
+
+			message.success(
+				"会话标题已更新",
+			);
+		} catch (error: unknown) {
+			if (axios.isAxiosError(error)) {
+				const detail =
+					error.response?.data?.detail;
+
+				message.error(
+					typeof detail === "string"
+						? detail
+						: "修改会话标题失败",
+				);
+			} else {
+				message.error(
+					"修改会话标题失败",
+				);
+			}
+		}
+	};
+
 	const handleDeleteSession = async (
 		sessionId: number,
 	) => {
@@ -126,6 +227,13 @@ function ChatPage() {
 					session.id !== sessionId,
 				),
 			);
+
+			if (
+				editingSessionId === sessionId
+			) {
+				setEditingSessionId(null);
+				setEditingTitle("");
+			}
 
 			if (
 				currentSessionId === sessionId
@@ -151,6 +259,12 @@ function ChatPage() {
 				message.error("删除会话失败");
 			}
 		}
+	};
+
+	const handleTemplateClick = (
+		templateQuestion: string,
+	) => {
+		setQuestion(templateQuestion);
 	};
 
 	const handleSubmit = async () => {
@@ -308,6 +422,9 @@ function ChatPage() {
 					const isActive =
 					session.id === currentSessionId;
 
+					const isEditing =
+						session.id === editingSessionId;
+
 					return(
 						<div
 							key={session.id}
@@ -318,24 +435,51 @@ function ChatPage() {
 								marginBottom: 8,
 							}}
 						>
+							{isEditing ? (
+								<Input
+									value={editingTitle}
+									autoFocus
+									maxLength={200}
+									placeholder="输入会话标题"
+									onChange={(event) => {
+										setEditingTitle(
+											event.target.value,
+										);
+									}}
+									onPressEnter={() => {
+										void handleSaveRename(
+											session.id,
+										);
+									}}
+									onKeyDown={(event) => {
+										if (event.key === "Escape") {
+											handleCancelRename();
+										}
+									}}
+									style={{
+										flex: 1,
+										minWidth: 0,
+									}}
+								/>
+							) : (
 							<Button
 								type={
 									isActive
 									? "primary"
 									: "text"
 								}
-								onClick={() =>
+								onClick={() => {
 									void handleSelectSession(
 										session.id,
-									)
-								}
+									);
+								}}
 								style={{
 									flex: 1,
-										minWidth: 0,
-										height: 42,
-										padding: "0 12px",
-										overflow: "hidden",
-										borderRadius: 6,
+									minWidth: 0,
+									height: 42,
+									padding: "0 12px",
+									overflow: "hidden",
+									borderRadius: 6,
 								}}
 							>
 								<Typography.Text
@@ -344,9 +488,9 @@ function ChatPage() {
 									}}
 									style={{
 										display: "block",
-											width: "100%",
-											textAlign: "left",
-											color: isActive
+										width: "100%",
+										textAlign: "left",
+										color: isActive
 											? "#ffffff"
 											: "#262626",
 									}}
@@ -354,6 +498,39 @@ function ChatPage() {
 									{session.title}
 								</Typography.Text>
 							</Button>
+							)}
+
+							{isEditing ? (
+								<>
+									<Button
+										type="text"
+										aria-label="保存会话标题"
+										icon={<CheckOutlined />}
+										onClick={() => {
+											void handleSaveRename(
+												session.id,
+											);
+										}}
+									/>
+									<Button
+										type="text"
+										aria-label="取消编辑"
+										icon={<CloseOutlined />}
+										onClick={handleCancelRename}
+									/>
+								</>
+							) : (
+								<>
+									<Button
+										type="text"
+										aria-label={
+											`修改会话标题：${session.title}`
+										}
+										icon={<EditOutlined />}
+										onClick={() => {
+											handleStartRename(session);
+										}}
+									/>
 
 							<Popconfirm
 								title="删除会话"
@@ -363,22 +540,21 @@ function ChatPage() {
 								okButtonProps={{
 									danger: true,
 								}}
-								onConfirm={() =>
+								onConfirm={() => {
 									void handleDeleteSession(
 										session.id,
-									)
-								}
+									);
+								}}
 							>
 								<Button
 									type="text"
 									danger
 									aria-label={`删除会话：${session.title}`}
 									icon={<DeleteOutlined/>}
-									onClick={(event) => {
-										event.stopPropagation();
-									}}
 								/>
 							</Popconfirm>
+								</>
+							)}
 						</div>
 					);
 				})}
@@ -405,6 +581,31 @@ function ChatPage() {
 					当前会话共 {messages.length} 条分析记录
 				</Text>
 			)}
+
+			<Space
+				wrap
+				size="small"
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				{QUERY_TEMPLATES.map(
+					(template) => (
+						<Button
+							key={template.key}
+							size="small"
+							type="dashed"
+							onClick={() =>
+								handleTemplateClick(
+									template.question,
+								)
+							}
+						>
+							{template.label}
+						</Button>
+					),
+				)}
+			</Space>
 
 		<TextArea
 			value={question}
