@@ -6,6 +6,8 @@ import {
 	Alert,
 	Button,
 	Card,
+	Divider,
+	Modal,
 	Input,
 	Layout,
 	message,
@@ -37,6 +39,13 @@ import {
 } from "../api/chat";
 
 import AnalysisMessage from "../components/AnalysisMessage";
+
+import {
+	createFavorite,
+	deleteFavorite,
+	getFavorites,
+	type FavoriteQuery,
+} from "../api/favorite";
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title } = Typography;
@@ -75,6 +84,18 @@ function ChatPage() {
 	const [editingTitle, setEditingTitle] =
 		useState("");
 
+	const [favorites, setFavorites] =
+		useState<FavoriteQuery[]>([]);
+
+	const [favoriteModalOpen, setFavoriteModalOpen] =
+		useState(false);
+
+	const [favoriteTitle, setFavoriteTitle] =
+		useState("");
+
+	const [favoriteQuestion, setFavoriteQuestion] =
+		useState("");
+
 	const loadSessions = async () => {
 		setSessionsLoading(true);
 		
@@ -85,6 +106,17 @@ function ChatPage() {
 			message.error("会话列表加载失败");
 		} finally {
 			setSessionsLoading(false);
+		}
+	};
+
+	const loadFavorites =async () => {
+		try {
+			const data =
+				await getFavorites();
+
+			setFavorites(data);
+		} catch {
+			message.error("收藏加载失败");
 		}
 	};
 
@@ -113,6 +145,8 @@ function ChatPage() {
 
 	useEffect(() => {
 		void loadSessions();
+		void loadFavorites();
+		void loadFavorites();
 	}, []);
 
 	useEffect(() => {
@@ -266,6 +300,86 @@ function ChatPage() {
 	) => {
 		setQuestion(templateQuestion);
 	};
+
+	const handleOpenFavorite = (
+		question: string,
+	) => {
+		setFavoriteQuestion(question);
+		setFavoriteTitle(
+			question.slice(0, 30),
+		);
+		setFavoriteModalOpen(true);
+	};
+
+	const handleCloseFavorite = () => {
+		setFavoriteModalOpen(false);
+		setFavoriteTitle("");
+		setFavoriteQuestion("");
+	};
+
+	const handleSaveFavorite =
+		async () => {
+			const normalizedTitle =
+				favoriteTitle.trim();
+
+			if (!normalizedTitle) {
+				message.warning(
+					"请输入收藏标题",
+				);
+				return;
+			}
+
+			try {
+				const favorite =
+					await createFavorite({
+						title: normalizedTitle,
+						question:favoriteQuestion,
+					});
+
+					setFavorites(
+						(currentFavorites) => [
+							favorite,
+							...currentFavorites,
+						],
+					);
+
+					handleCloseFavorite();
+
+					message.success(
+						"查询已收藏",
+					);
+			} catch {
+				message.error(
+					"收藏查询失败",
+				);
+			}
+		};
+
+	const handleDeleteFavorite =
+		async (favoriteId: number) => {
+			try {
+				await deleteFavorite(
+					favoriteId,
+				);
+
+				setFavorites(
+					(currentFavorites) =>
+					currentFavorites.filter(
+						(favorite) =>
+						favorite.id !==
+							favoriteId,
+					),
+				);
+
+				message.success(
+					"收藏已删除",
+				);
+			} catch {
+				message.error(
+					"删除收藏失败",
+				);
+			}
+		};
 
 	const handleSubmit = async () => {
 		if (loading) {
@@ -607,6 +721,68 @@ function ChatPage() {
 				)}
 			</Space>
 
+			{favorites.length >0 && (
+				<>
+					<Divider
+						plain
+					>
+						我的收藏
+					</Divider>
+
+					<Space
+						wrap
+						size="small"
+						style={{
+							marginBottom: 16,
+						}}
+					>
+						{favorites.map((favorite) => (
+								<div
+									key={favorite.id}
+									style={{
+										display: "inline-flex",
+										alignItems: "center",
+									}}
+								>
+									<Button
+										size="small"
+										onClick={() => {
+											setQuestion(
+												favorite.question,
+											);
+										}}
+									>
+										{favorite.title}
+									</Button>
+
+									<Popconfirm
+										title="删除收藏"
+										description="确定删除这个常用查询吗？"
+										okText="删除"
+										cancelText="取消"
+										okButtonProps={{
+											danger: true,
+										}}
+										onConfirm={() => {
+											void handleDeleteFavorite(
+												favorite.id,
+											);
+										}}
+									>
+										<Button
+											size="small"
+											type="text"
+											danger
+										>
+											x
+										</Button>
+									</Popconfirm>
+								</div>
+						))}
+					</Space>
+				</>
+			)}
+
 		<TextArea
 			value={question}
 			disabled={loading}
@@ -725,6 +901,9 @@ function ChatPage() {
 					<AnalysisMessage
 						key={chatMessage.id}
 						message={chatMessage}
+						onFavorite={
+							handleOpenFavorite
+						}
 					/>
 				))}
 			</Space>
@@ -734,6 +913,42 @@ function ChatPage() {
 
 		</Content>
 		</Layout>
+			<Modal
+				title="收藏常用查询"
+				open={favoriteModalOpen}
+				okText="收藏"
+				cancelText="取消"
+				onOk={() =>
+					void handleSaveFavorite()
+				}
+				onCancel={
+					handleCloseFavorite
+				}
+			>
+				<Input
+					value={favoriteTitle}
+					maxLength={200}
+					placeholder="输入收藏标题"
+					onChange={(event) =>
+						setFavoriteTitle(
+							event.target.value,
+						)
+					}
+					onPressEnter={() =>
+						void handleSaveFavorite()
+					}
+				/>
+
+				<Typography.Paragraph
+					type="secondary"
+					style={{
+						marginTop: 16,
+						marginBottom: 0,
+					}}
+				>
+					{favoriteQuestion}
+				</Typography.Paragraph>
+			</Modal>
 		</Layout>
 	);
 }

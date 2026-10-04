@@ -1,10 +1,15 @@
 import {
+	Button,
 	Card,
 	Collapse,
 	Space,
 	Tag,
 	Typography,
 } from "antd";
+
+import {
+	StarOutlined,
+} from "@ant-design/icons";
 
 import ChartPreview from "./ChartPreview";
 import ResultTable from "./ResultTable";
@@ -29,6 +34,9 @@ export interface AnalysisMessageData {
 
 interface AnalysisMessageProps {
 	message: AnalysisMessageData;
+	onFavorite: (
+		question: string,
+	) => void;
 }
 
 function formatDateTime(
@@ -54,6 +62,7 @@ function formatDateTime(
 
 function AnalysisMessage({
 	message,
+	onFavorite,
 }: AnalysisMessageProps) {
 	const chartData = getChartData(
 		message.columns,
@@ -117,6 +126,20 @@ function AnalysisMessage({
 						AI分析
 					</Title>
 				}
+				extra={
+					<Button
+						type="text"
+						icon={<StarOutlined />}
+						onClick={() =>
+							onFavorite(
+								message.question,
+							)
+						}
+					>
+						收藏
+					</Button>
+				}
+
 				style={{
 					marginRight: 80,
 				}}
