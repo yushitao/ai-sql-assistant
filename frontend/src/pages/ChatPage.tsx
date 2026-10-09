@@ -482,6 +482,15 @@ function ChatPage() {
 		</Title>
 
 		<Space>
+
+			<Button
+				onClick={() => {
+					navigate("/admin/audits");
+				}}
+			>
+				管理员审计
+			</Button>
+
 			<Button
 				onClick={() =>
 					navigate("/history")
@@ -496,6 +505,7 @@ function ChatPage() {
 			>
 				退出登陆
 			</Button>
+
 		</Space>
 		</Header>
 

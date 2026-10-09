@@ -11,6 +11,7 @@ from app.core.dependencies import (
     DatabaseSession,
 )
 from app.models.sql_audit import SQLAudit
+from app.models.user import User
 from app.schemas.sql_audit import SQLAuditResponse
 from app.schemas.sql_query import (
     SQLExecuteRequest,
@@ -180,10 +181,30 @@ def get_all_sql_history(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> list:
     statement = (
-        select(SQLAudit)
+        select(SQLAudit, User)
+        .join(
+            User,
+            User.id == SQLAudit.user_id,
+        )
         .order_by(SQLAudit.created_at.desc())
         .offset(offset)
         .limit(limit)
     )
 
-    return list(db.scalars(statement).all())
+    rows = db.execute(statement).all()
+
+    return [
+        SQLAuditResponse(
+            id=audit.id,
+            user_id=audit.user_id,
+            username=user.username,
+            sql_text=audit.sql_text,
+            validation_passed=audit.validation_passed,
+            execution_success=audit.execution_success,
+            row_count=audit.row_count,
+            execution_time_ms=audit.execution_time_ms,
+            error_message=audit.error_message,
+            created_at=audit.created_at,
+        ) for audit, user in rows
+    ]
+

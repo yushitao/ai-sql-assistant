@@ -11,6 +11,8 @@ import HistoryPage from "../pages/HistoryPage";
 
 import ProtectedRoute from "./ProtectedRoute";
 
+import AdminAuditPage from "../pages/AdminAuditpage";
+
 function AppRouter() {
 	return (
 		<BrowserRouter>
@@ -36,10 +38,16 @@ function AppRouter() {
 						element={<ChatPage />}
 					/>
 
-				<Route
-					path="/history"
-					element={<HistoryPage />}
-				/>
+					<Route
+						path="/history"
+						element={<HistoryPage />}
+					/>
+
+					<Route
+						path="/admin/audits"
+						element={<AdminAuditPage />}
+					/>
+
 				</Route>
 
 				<Route

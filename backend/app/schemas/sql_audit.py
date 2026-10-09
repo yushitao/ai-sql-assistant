@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 class SQLAuditResponse(BaseModel):
     id: int
     user_id: int
+    username: str
     sql_text: str
     validation_passed: bool
     execution_success: bool
