@@ -11,7 +11,7 @@ import HistoryPage from "../pages/HistoryPage";
 
 import ProtectedRoute from "./ProtectedRoute";
 
-import AdminAuditPage from "../pages/AdminAuditpage";
+import AdminAuditPage from "../pages/AdminAuditPage";
 
 function AppRouter() {
 	return (

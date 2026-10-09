@@ -47,6 +47,11 @@ import {
 	type FavoriteQuery,
 } from "../api/favorite";
 
+import {
+	getCurrentUser,
+	type CurrentUser,
+} from "../api/user";
+
 const { Header, Sider, Content } = Layout;
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -96,6 +101,11 @@ function ChatPage() {
 	const [favoriteQuestion, setFavoriteQuestion] =
 		useState("");
 
+	const [ currentUser, setCurrentUser] =
+		useState<
+			CurrentUser | null
+		>(null);
+
 	const loadSessions = async () => {
 		setSessionsLoading(true);
 		
@@ -143,10 +153,23 @@ function ChatPage() {
 		}
 	};
 
+	const loadCurrentUser =
+		async () => {
+			try {
+				const data =
+					await getCurrentUser();
+
+				setCurrentUser(data);
+			} catch {
+				//
+			}
+		};
+	
+
 	useEffect(() => {
 		void loadSessions();
 		void loadFavorites();
-		void loadFavorites();
+		void loadCurrentUser();
 	}, []);
 
 	useEffect(() => {
@@ -445,6 +468,7 @@ function ChatPage() {
 		);
 
 		localStorage.removeItem(
+
 			"token_type",
 		);
 
@@ -483,13 +507,18 @@ function ChatPage() {
 
 		<Space>
 
-			<Button
-				onClick={() => {
-					navigate("/admin/audits");
-				}}
-			>
-				管理员审计
-			</Button>
+			{currentUser?.role
+				?.toUpperCase() ===
+				"ADMIN" && (
+					<Button
+						onClick={() => {
+							navigate("/admin/audits");
+						}}
+					>
+						管理员审计
+					</Button>
+				)
+			}
 
 			<Button
 				onClick={() =>

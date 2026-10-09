@@ -1,4 +1,8 @@
 import {
+	useNavigate,
+} from "react-router-dom";
+
+import {
 	useEffect,
 	useState,
 } from "react";
@@ -19,7 +23,13 @@ import {
 	type SQLAudit,
 } from "../api/adminAudit";
 
+import {
+	getCurrentUser,
+} from "../api/user";
+
 function AdminAuditPage() {
+	const navigate = useNavigate();
+
 	const [
 		audits,
 		setAudits,
@@ -55,9 +65,50 @@ function AdminAuditPage() {
 			}
 		};
 
-		useEffect(() => {
-			void loadAudits();
-		}, []);
+	useEffect(() => {
+		const checkAdmin =
+			async () => {
+				try {
+					const user =
+						await getCurrentUser();
+
+					if (
+						user.role
+							?.toUpperCase() !==
+							"ADMIN"
+					) {
+						message.error(
+							"无权限访问管理页面",
+						);
+
+						navigate(
+							"/chat",
+							{
+								replace: true,
+							},
+						);
+					}
+
+				} catch {
+					message.error(
+						"用户信息获取失败",
+					);
+
+					navigate(
+						"/chat",
+						{
+							replace: true,
+						},
+					);
+				}
+			};
+
+		void checkAdmin();
+	}, [navigate]);
+
+	useEffect(() => {
+		void loadAudits();
+	}, []);
 
 	const columns = [
 		{
@@ -159,15 +210,41 @@ function AdminAuditPage() {
 
 	return (
 		<Card
-			title="管理员审计"
+			title={
+				<Space>
+					<span>
+						"管理员审计"
+					</span>
+
+					<Tag
+						color="red"
+						style={{
+							marginLeft: 8,
+						}}
+					>
+						ADMIN
+					</Tag>
+				</Space>
+			}
 			extra={
-				<Button
-					onClick={() =>
-						void loadAudits()
-					}
-				>
-					刷新
-				</Button>
+				<Space>
+					<Button
+						onClick={() =>
+							navigate("/chat")
+						}
+					>
+						返回聊天
+					</Button>
+
+					<Button
+						loading={loading}
+						onClick={() =>
+							void loadAudits()
+						}
+					>
+						刷新
+					</Button>
+				</Space>
 			}
 		>
 			<Table
