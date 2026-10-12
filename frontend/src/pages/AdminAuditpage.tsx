@@ -10,8 +10,10 @@ import {
 import {
 	Button,
 	Card,
+	Input,
 	Modal,
 	message,
+	Radio,
 	Space,
 	Table,
 	Tag,
@@ -36,6 +38,20 @@ function AdminAuditPage() {
 	] = useState<SQLAudit[]>([]);
 
 	const [
+		keyword,
+		setKeyword,
+	] = useState("");
+
+	const [
+		statusFilter,
+		setStatusFilter,
+	] = useState<
+	"all" | "success" | "failed"
+	>(
+		"all",
+	);
+
+	const [
 		loading,
 		setLoading,
 	] = useState(false);
@@ -53,7 +69,20 @@ function AdminAuditPage() {
 
 			try {
 				const data =
-					await getAuditHistory();
+					await getAuditHistory(
+						{
+							keyword:
+								keyword ||
+								undefined,
+
+							execution_success:
+								statusFilter ===
+								"all"
+									? undefined
+									: statusFilter ===
+										"success",
+						}
+					);
 				
 				setAudits(data);
 			} catch {
@@ -110,6 +139,10 @@ function AdminAuditPage() {
 		void loadAudits();
 	}, []);
 
+	useEffect(() => {
+		void loadAudits();
+	}, [statusFilter]);
+
 	const columns = [
 		{
 			title: "ID",
@@ -119,6 +152,16 @@ function AdminAuditPage() {
 		{
 			title: "用户",
 			dataIndex: "username",
+		},
+
+		{
+			title: "问题",
+			dataIndex: "question",
+			width: 260,
+			ellipsis: true,
+			render: (
+				value:string | null,
+			) => value ?? "-",
 		},
 
 		{
@@ -247,6 +290,78 @@ function AdminAuditPage() {
 				</Space>
 			}
 		>
+			<Space
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				<Input.Search
+					value={keyword}
+					allowClear
+					style={{
+						width: 350,
+					}}
+					placeholder="搜索SQL关键词"
+					onChange={(
+						event,
+					) => {
+						setKeyword(
+							event.target.value,
+						);
+					}}
+					onSearch={() => {
+						void loadAudits();
+					}}
+				/>
+				
+				<Radio.Group
+					value={statusFilter}
+					onChange={(
+						event,
+					) => {
+						setStatusFilter(
+							event.target.value,
+						);
+					}}
+				>
+					<Radio.Button
+						value="all"
+					>
+						全部
+					</Radio.Button>
+
+					<Radio.Button
+						value="success"
+					>
+						成功
+					</Radio.Button>
+
+					<Radio.Button
+						value="failed"
+					>
+						失败
+					</Radio.Button>
+				</Radio.Group>
+
+				<Button
+					onClick={() => {
+						void loadAudits();
+					}}
+				>
+					查询
+				</Button>
+
+				<Button
+					onClick={() => {
+						setKeyword("");
+						setStatusFilter("all");
+						void loadAudits();
+					}}
+				>
+					重置
+				</Button>
+			</Space>
+
 			<Table
 				rowKey="id"
 				loading={loading}
@@ -284,6 +399,27 @@ function AdminAuditPage() {
 					setSelectedAudit(null)
 				}
 			>
+				<Typography.Title
+					level={5}
+				>
+					用户问题
+				</Typography.Title>
+
+				<div
+					style={{
+						padding: 12,
+						marginBottom: 16,
+						background: "#fafafa",
+						border: "1px solid #d9d9d9",
+						borderRadius: 6,
+						whiteSpace: "pre-wrap",
+						wordBreak: "break-word",
+					}}
+				> {selectedAudit?.question ??
+					"历史记录无问题信息"
+					}
+				</div>
+
 				<Typography.Title
 					level={5}
 				>

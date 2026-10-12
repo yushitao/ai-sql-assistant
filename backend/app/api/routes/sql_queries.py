@@ -51,6 +51,7 @@ def validate_sql(
 
     audit = SQLAudit(
         user_id=current_user.id,
+        question=None,
         sql_text=request_data.sql,
         validation_passed=validation.valid,
         execution_success=False,
@@ -82,6 +83,7 @@ def execute_sql(
     if not validation.valid:
         audit = SQLAudit(
             user_id=current_user.id,
+            question=None,
             sql_text=request_data.sql,
             validation_passed=False,
             execution_success=False,
@@ -103,6 +105,7 @@ def execute_sql(
 
         audit = SQLAudit(
             user_id=current_user.id,
+            question=None,
             sql_text=request_data.sql,
             validation_passed=True,
             execution_success=True,
@@ -135,6 +138,7 @@ def execute_sql(
 
         audit = SQLAudit(
             user_id=current_user.id,
+            question=None,
             sql_text=request_data.sql,
             validation_passed=True,
             execution_success=False,
@@ -179,16 +183,22 @@ def get_all_sql_history(
     admin_user: AdminUser,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    keyword: str | None = None,
+    execution_success: bool | None = None,
 ) -> list:
+    statement = select(SQLAudit, User).join(
+        User,
+        User.id == SQLAudit.user_id,
+    )
+
+    if keyword:
+        statement = statement.where(SQLAudit.sql_text.ilike(f"%{keyword}%"))
+
+    if execution_success is not None:
+        statement = statement.where(SQLAudit.execution_success == execution_success)
+
     statement = (
-        select(SQLAudit, User)
-        .join(
-            User,
-            User.id == SQLAudit.user_id,
-        )
-        .order_by(SQLAudit.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+        statement.order_by(SQLAudit.created_at.desc()).limit(limit).offset(offset)
     )
 
     rows = db.execute(statement).all()
@@ -198,6 +208,7 @@ def get_all_sql_history(
             id=audit.id,
             user_id=audit.user_id,
             username=user.username,
+            question=audit.question,
             sql_text=audit.sql_text,
             validation_passed=audit.validation_passed,
             execution_success=audit.execution_success,
@@ -205,6 +216,6 @@ def get_all_sql_history(
             execution_time_ms=audit.execution_time_ms,
             error_message=audit.error_message,
             created_at=audit.created_at,
-        ) for audit, user in rows
+        )
+        for audit, user in rows
     ]
-

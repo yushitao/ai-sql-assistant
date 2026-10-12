@@ -7,6 +7,7 @@ class SQLAuditResponse(BaseModel):
     id: int
     user_id: int
     username: str
+    question: str | None
     sql_text: str
     validation_passed: bool
     execution_success: bool

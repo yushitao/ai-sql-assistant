@@ -26,26 +26,18 @@ def create_favorite_query(
     db: DatabaseSession,
     current_user: CurrentUser,
 ) -> FavoriteQuery:
-    normalized_title = (
-        request_data.title.strip()
-    )
-    normalized_question = (
-        request_data.question.strip()
-    )
+    normalized_title = request_data.title.strip()
+    normalized_question = request_data.question.strip()
 
     if not normalized_title:
         raise HTTPException(
-            status_code=(
-                status.HTTP_422_UNPROCESSABLE_ENTITY
-            ),
+            status_code=(status.HTTP_422_UNPROCESSABLE_ENTITY),
             detail="收藏标题不能为空",
         )
 
     if not normalized_question:
         raise HTTPException(
-            status_code=(
-                status.HTTP_422_UNPROCESSABLE_ENTITY
-            ),
+            status_code=(status.HTTP_422_UNPROCESSABLE_ENTITY),
             detail="收藏问题不能为空",
         )
 

@@ -90,6 +90,7 @@ def query_data_with_ai(
 
         audit = SQLAudit(
             user_id=current_user.id,
+            question=request_data.question,
             sql_text=result.generated_sql,
             validation_passed=True,
             execution_success=True,
@@ -124,6 +125,7 @@ def query_data_with_ai(
     except UnsafeGeneratedSQLError as exc:
         audit = SQLAudit(
             user_id=current_user.id,
+            question=request_data.question,
             sql_text=exc.generated_sql,
             validation_passed=False,
             execution_success=False,

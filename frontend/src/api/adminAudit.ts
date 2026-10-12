@@ -4,6 +4,7 @@ export interface SQLAudit {
 	id: number;
 	user_id: number;
 	username: string;
+	question: string | null;
 	sql_text: string;
 	validation_passed: boolean;
 	execution_success: boolean;
@@ -13,14 +14,20 @@ export interface SQLAudit {
 	created_at: string;
 }
 
-export async function getAuditHistory():
+export async function getAuditHistory(
+	params?: {
+		keyword?: string;
+		execution_success?: boolean;
+	},
+):
 	Promise<SQLAudit[]> {
 
 		const response =
-			await client.get<
-				SQLAudit[]
-				>(
+			await client.get(
 					"/sql/admin/history",
+					{
+						params,
+					},
 				);
 
 		return response.data;

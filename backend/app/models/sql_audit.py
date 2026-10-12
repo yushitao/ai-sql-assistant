@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -18,6 +18,11 @@ class SQLAudit(Base):
         ForeignKey("users.id"),
         index=True,
         nullable=False,
+    )
+
+    question: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
     )
 
     sql_text: Mapped[str] = mapped_column(
