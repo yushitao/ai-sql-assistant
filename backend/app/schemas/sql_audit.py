@@ -26,3 +26,10 @@ class SQLAuditPageResponse(BaseModel):
     offset: int
 
 
+class SQLAuditStatsResponse(BaseModel):
+    total: int
+    success_count: int
+    failure_count: int
+    success_rate: float
+    failure_rate: float
+    avg_execution_time_ms: float

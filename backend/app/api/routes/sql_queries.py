@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.dependencies import (
@@ -15,7 +15,11 @@ from app.core.dependencies import (
 )
 from app.models.sql_audit import SQLAudit
 from app.models.user import User
-from app.schemas.sql_audit import SQLAuditPageResponse, SQLAuditResponse
+from app.schemas.sql_audit import (
+    SQLAuditPageResponse,
+    SQLAuditResponse,
+    SQLAuditStatsResponse,
+)
 from app.schemas.sql_query import (
     SQLExecuteRequest,
     SQLExecuteResponse,
@@ -199,29 +203,16 @@ def get_all_sql_history(
     if keyword:
         statement = statement.where(SQLAudit.sql_text.ilike(f"%{keyword}%"))
 
-        count_statement = (
-            count_statement.where(
-                SQLAudit.sql_text.ilike(
-                    f"%{keyword}%"
-                )
-            )
-        )
+        count_statement = count_statement.where(SQLAudit.sql_text.ilike(f"%{keyword}%"))
 
     if execution_success is not None:
         statement = statement.where(SQLAudit.execution_success == execution_success)
 
-        count_statement = (
-            count_statement.where(
-                SQLAudit.execution_success
-                == execution_success
-            )
+        count_statement = count_statement.where(
+            SQLAudit.execution_success == execution_success
         )
 
-    total = len(
-        db.scalars(
-            count_statement
-        ).all()
-    )
+    total = len(db.scalars(count_statement).all())
 
     statement = (
         statement.order_by(SQLAudit.created_at.desc()).limit(limit).offset(offset)
@@ -247,10 +238,91 @@ def get_all_sql_history(
     ]
 
     return SQLAuditPageResponse(
-        items = items,
-        total = total,
-        limit = limit,
-        offset = offset,
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/admin/stats",
+    response_model=SQLAuditStatsResponse,
+)
+def get_sql_audit_stats(
+    db: DatabaseSession,
+    current_user: AdminUser,
+    keyword: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            max_length=200,
+        ),
+    ] = None,
+    execution_success: Annotated[
+        bool | None,
+        Query(),
+    ] = None,
+) -> SQLAuditStatsResponse:
+    statement = select(
+        func.count(SQLAudit.id),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        SQLAudit.execution_success.is_(True),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        SQLAudit.execution_success.is_(False),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.avg(SQLAudit.execution_time_ms),
+            0.0,
+        ),
+    )
+
+    normalized_keyword = keyword.strip() if keyword is not None else ""
+
+    if normalized_keyword:
+        statement = statement.where(SQLAudit.sql_text.ilike(f"%{normalized_keyword}%"))
+
+    if execution_success is not None:
+        statement = statement.where(SQLAudit.execution_success == execution_success)
+
+    row = db.execute(statement).one()
+
+    total = int(row[0] or 0)
+    success_count = int(row[1] or 0)
+    failure_count = int(row[2] or 0)
+
+    avg_execution_time_ms = float(row[3] or 0.0)
+
+    success_rate = success_count / total * 100 if total > 0 else 0.0
+
+    failure_rate = failure_count / total * 100 if total > 0 else 0.0
+
+    return SQLAuditStatsResponse(
+        total=total,
+        success_count=success_count,
+        failure_count=failure_count,
+        success_rate=round(success_rate, 2),
+        failure_rate=round(failure_rate, 2),
+        avg_execution_time_ms=round(avg_execution_time_ms, 3),
     )
 
 
@@ -275,15 +347,13 @@ def export_sql_history(
     if execution_success is not None:
         statement = statement.where(SQLAudit.execution_success == execution_success)
 
-    statement = (
-        statement.order_by(SQLAudit.created_at.desc())
-    )
+    statement = statement.order_by(SQLAudit.created_at.desc())
 
     rows = db.execute(statement).all()
 
-    workbook =Workbook()
+    workbook = Workbook()
     sheet = workbook.active
-    sheet.title  = "SQL Audit"
+    sheet.title = "SQL Audit"
     sheet.append(
         [
             "ID",
@@ -320,20 +390,8 @@ def export_sql_history(
 
     return StreamingResponse(
         stream,
-        media_type=
-        (
-            "application/"
-            "vnd.openxmlformats-"
-            "officedocument."
-            "spreadsheetml.sheet"
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ),
-        headers={
-            "Content-Disposition":
-            (
-                "attachment;"
-                " filename="
-                "sql_audit_export.xlsx"
-            )
-        },
+        headers={"Content-Disposition": ("attachment; filename=sql_audit_export.xlsx")},
     )
-

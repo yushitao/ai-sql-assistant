@@ -10,11 +10,14 @@ import {
 import {
 	Button,
 	Card,
+	Col,
 	Input,
-	Modal,
 	message,
+	Modal,
 	Radio,
+	Row,
 	Space,
+	Statistic,
 	Table,
 	Tag,
 	Typography,
@@ -23,7 +26,9 @@ import {
 import {
 	exportAuditHistory,
 	getAuditHistory,
+	getAuditStats,
 	type SQLAudit,
+	type SQLAuditStats,
 } from "../api/adminAudit";
 
 import {
@@ -79,6 +84,23 @@ function AdminAuditPage() {
 		SQLAudit | null
 	>(null);
 
+	const [
+		stats,
+		setStats,
+	] = useState<SQLAuditStats>({
+		total: 0,
+		success_count: 0,
+		failure_count: 0,
+		success_rate: 0,
+		failure_rate: 0,
+		avg_execution_time_ms: 0,
+	});
+
+	const [
+		statsLoading,
+		setStatsLoading,
+	] = useState(false);
+
 	const loadAudits =
 		async () => {
 			setLoading(true);
@@ -113,6 +135,34 @@ function AdminAuditPage() {
 				setLoading(false);
 			}
 		};
+
+	const loadStats = async () => {
+		setStatsLoading(true);
+
+		try {
+			const executionSuccess =
+				statusFilter === "all"
+					? undefined
+					: statusFilter === "success";
+			const data =
+				await getAuditStats({
+					keyword:
+						keyword ||
+						undefined,
+
+					execution_success:
+						executionSuccess,
+				});
+
+			setStats(data);
+		} catch {
+			message.error(
+				"审计统计加载失败",
+			);
+		} finally {
+			setStatsLoading(false);
+		}
+	};
 
 	const handleExport =
 		async () => {
@@ -213,11 +263,16 @@ function AdminAuditPage() {
 
 	useEffect(() => {
 		void loadAudits();
+
+		void loadStats();
 	}, []);
 
 	useEffect(() => {
 		void loadAudits();
-	}, [statusFilter]);
+
+		void loadStats();
+	},[statusFilter]
+		 );
 
 	useEffect(() => {
 		void loadAudits();
@@ -339,7 +394,7 @@ function AdminAuditPage() {
 			title={
 				<Space>
 					<span>
-						"管理员审计"
+						管理员审计
 					</span>
 
 					<Tag
@@ -382,6 +437,65 @@ function AdminAuditPage() {
 				</Space>
 			}
 		>
+			<Row
+				gutter={[16, 16]}
+				style={{
+					marginBottom: 20,
+				}}
+			>
+				<Col xs={24} sm={12} lg={6}>
+					<Card>
+						<Statistic
+							title="总查询数"
+							value={stats.total}
+							loading={statsLoading}
+						/>
+					</Card>
+				</Col>
+
+				<Col xs={24} sm={12} lg={6}>
+					<Card>
+						<Statistic
+							title="成功率"
+							value={stats.success_rate}
+							precision={2}
+							suffix="%"
+							loading={statsLoading}
+							valueStyle={{
+								color: "#3f8600",
+							}}
+						/>
+					</Card>
+				</Col>
+
+				<Col xs={24} sm={12} lg={6}>
+					<Card>
+						<Statistic
+							title="失败率"
+							value={stats.failure_rate}
+							precision={2}
+							suffix="%"
+							loading={statsLoading}
+							valueStyle={{
+								color: "#cf1322"
+							}}
+						/>
+					</Card>
+				</Col>
+
+				<Col xs={24} sm={12} lg={6}>
+					<Card>
+						<Statistic
+							title="平均耗时"
+							value={stats.avg_execution_time_ms}
+							precision={3}
+							suffix="ms"
+							loading={statsLoading}
+						/>
+					</Card>
+				</Col>
+			</Row>
+
 			<Space
 				style={{
 					marginBottom: 16,
@@ -402,18 +516,19 @@ function AdminAuditPage() {
 						);
 					}}
 					onSearch={() => {
+						setCurrentPage(1);
+
 						void loadAudits();
+
+						void loadStats();
 					}}
 				/>
 				
 				<Radio.Group
 					value={statusFilter}
-					onChange={(
-						event,
-					) => {
-						setStatusFilter(
-							event.target.value,
-						);
+					onChange={(event) => {
+						setStatusFilter(event.target.value);
+
 					}}
 				>
 					<Radio.Button
@@ -438,6 +553,8 @@ function AdminAuditPage() {
 				<Button
 					onClick={() => {
 						void loadAudits();
+
+						void loadStats();
 					}}
 				>
 					查询
@@ -448,6 +565,8 @@ function AdminAuditPage() {
 						setKeyword("");
 						setStatusFilter("all");
 						void loadAudits();
+
+						void loadStats();
 					}}
 				>
 					重置
@@ -490,15 +609,17 @@ function AdminAuditPage() {
 
 						<Button
 							size="small"
-							onClick={() => {
-								void navigator.clipboard.writeText(
-									selectedAudit?.sql_text ??
-										"",
-								);
-
-								message.success(
-									"SQL已复制",
-								);
+							onClick={async () => {
+								try {
+									await navigator.clipboard.writeText(
+										selectedAudit?.sql_text ?? "",
+									);
+									message.success(
+										"SQL已复制",
+									);
+								} catch {
+									message.error("复制失败");
+								}
 							}}
 						>
 							复制SQL

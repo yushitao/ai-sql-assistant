@@ -21,6 +21,15 @@ export interface SQLAuditPage {
 	offset: number;
 }
 
+export interface SQLAuditStats {
+	total: number;
+	success_count: number;
+	failure_count: number;
+	success_rate: number;
+	failure_rate: number;
+	avg_execution_time_ms: number;
+}
+
 export interface AuditHistoryParams {
 	keyword?: string;
 	execution_success?: boolean;
@@ -43,6 +52,23 @@ export async function getAuditHistory(
 
 		return response.data;
 	}
+
+export async function getAuditStats(
+	params?: AuditHistoryParams,
+): Promise<SQLAuditStats> {
+	const response =
+		await client.get<SQLAuditStats>(
+			"/sql/admin/stats",
+			{
+				params: {
+					keyword: params?.keyword,
+					execution_success: params?.execution_success,
+				},
+			},
+		);
+
+	return response.data;
+}
 
 export async function exportAuditHistory(
 	params?: AuditHistoryParams,
