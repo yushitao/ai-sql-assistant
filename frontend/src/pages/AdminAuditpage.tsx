@@ -2,6 +2,9 @@ import {
 	useNavigate,
 } from "react-router-dom";
 
+import ReactECharts
+from "echarts-for-react";
+
 import {
 	useEffect,
 	useState,
@@ -27,8 +30,10 @@ import {
 	exportAuditHistory,
 	getAuditHistory,
 	getAuditStats,
+	getAuditTrend,
 	type SQLAudit,
 	type SQLAuditStats,
+	type SQLAuditTrendItem,
 } from "../api/adminAudit";
 
 import {
@@ -101,6 +106,11 @@ function AdminAuditPage() {
 		setStatsLoading,
 	] = useState(false);
 
+	const [
+		trendData,
+		setTrendData,
+	] = useState<SQLAuditTrendItem[]>([]);
+
 	const loadAudits =
 		async () => {
 			setLoading(true);
@@ -161,6 +171,17 @@ function AdminAuditPage() {
 			);
 		} finally {
 			setStatsLoading(false);
+		}
+	};
+
+	const loadTrend = async () => {
+		try {
+			const data =
+				await getAuditTrend();
+
+			setTrendData(data);
+		} catch {
+			//
 		}
 	};
 
@@ -265,6 +286,8 @@ function AdminAuditPage() {
 		void loadAudits();
 
 		void loadStats();
+
+		void loadTrend();
 	}, []);
 
 	useEffect(() => {
@@ -495,6 +518,54 @@ function AdminAuditPage() {
 					</Card>
 				</Col>
 			</Row>
+
+			<Card
+				title="最近7天查询量"
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				<ReactECharts
+					option={{
+						tooltip: {
+							trigger: "axis",
+						},
+
+						xAxis: {
+							type: "category",
+							data:
+								trendData
+							.map(
+								item =>
+								item.date,
+							)
+							.reverse(),
+						},
+						
+						yAxis: {
+							type: "value",
+						},
+
+						series: [
+							{
+								type: "line",
+								smooth: true,
+								areaStyle: {},
+								data:
+									trendData
+									.map(
+										item =>
+											item.count,
+									)
+									.reverse(),
+							},
+						],
+					}}
+					style={{
+						height: 300,
+					}}
+				/>
+			</Card>
 
 			<Space
 				style={{

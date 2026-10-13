@@ -30,6 +30,11 @@ export interface SQLAuditStats {
 	avg_execution_time_ms: number;
 }
 
+export interface SQLAuditTrendItem {
+	date: string;
+	count: number;
+}
+
 export interface AuditHistoryParams {
 	keyword?: string;
 	execution_success?: boolean;
@@ -69,6 +74,16 @@ export async function getAuditStats(
 
 	return response.data;
 }
+
+export async function getAuditTrend():
+	Promise<SQLAuditTrendItem[]> {
+		const response =
+			await client.get(
+				"/sql/admin/trend",
+			);
+
+			return response.data;
+	}
 
 export async function exportAuditHistory(
 	params?: AuditHistoryParams,

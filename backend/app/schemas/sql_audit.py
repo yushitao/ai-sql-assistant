@@ -33,3 +33,8 @@ class SQLAuditStatsResponse(BaseModel):
     success_rate: float
     failure_rate: float
     avg_execution_time_ms: float
+
+class SQLAuditTrendItem(BaseModel):
+    date: str
+    count: int
+

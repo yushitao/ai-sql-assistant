@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.dependencies import (
@@ -19,6 +19,7 @@ from app.schemas.sql_audit import (
     SQLAuditPageResponse,
     SQLAuditResponse,
     SQLAuditStatsResponse,
+    SQLAuditTrendItem,
 )
 from app.schemas.sql_query import (
     SQLExecuteRequest,
@@ -324,6 +325,49 @@ def get_sql_audit_stats(
         failure_rate=round(failure_rate, 2),
         avg_execution_time_ms=round(avg_execution_time_ms, 3),
     )
+
+@router.get(
+    "/admin/trend",
+    response_model=list[SQLAuditTrendItem],
+)
+def get_sql_audit_trend(
+    db: DatabaseSession,
+    admin_user: AdminUser,
+):
+    statement = text(
+        """
+        SELECT
+            substr(
+                created_at,
+                1,
+                10
+            ) AS date,
+
+            COUNT(*) AS count
+
+        FROM sql_audits
+
+        GROUP BY date
+
+        ORDER BY date DESC
+
+        LIMIT 7
+        """
+    )
+
+    rows = (
+        db.execute(statement)
+        .mappings()
+        .all()
+    )
+
+    return [
+        SQLAuditTrendItem(
+            date=row["date"],
+            count=row["count"],
+        )
+        for row in rows
+    ]
 
 
 @router.get(
