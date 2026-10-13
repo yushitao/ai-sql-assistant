@@ -17,3 +17,12 @@ class SQLAuditResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SQLAuditPageResponse(BaseModel):
+    items: list[SQLAuditResponse]
+    total: int
+    limit: int
+    offset: int
+
+

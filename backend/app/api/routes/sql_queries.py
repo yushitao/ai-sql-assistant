@@ -12,7 +12,7 @@ from app.core.dependencies import (
 )
 from app.models.sql_audit import SQLAudit
 from app.models.user import User
-from app.schemas.sql_audit import SQLAuditResponse
+from app.schemas.sql_audit import SQLAuditPageResponse, SQLAuditResponse
 from app.schemas.sql_query import (
     SQLExecuteRequest,
     SQLExecuteResponse,
@@ -176,7 +176,7 @@ def get_my_sql_history(
 
 @router.get(
     "/admin/history",
-    response_model=list[SQLAuditResponse],
+    response_model=SQLAuditPageResponse,
 )
 def get_all_sql_history(
     db: DatabaseSession,
@@ -191,11 +191,34 @@ def get_all_sql_history(
         User.id == SQLAudit.user_id,
     )
 
+    count_statement = select(SQLAudit)
+
     if keyword:
         statement = statement.where(SQLAudit.sql_text.ilike(f"%{keyword}%"))
 
+        count_statement = (
+            count_statement.where(
+                SQLAudit.sql_text.ilike(
+                    f"%{keyword}%"
+                )
+            )
+        )
+
     if execution_success is not None:
         statement = statement.where(SQLAudit.execution_success == execution_success)
+
+        count_statement = (
+            count_statement.where(
+                SQLAudit.execution_success
+                == execution_success
+            )
+        )
+
+    total = len(
+        db.scalars(
+            count_statement
+        ).all()
+    )
 
     statement = (
         statement.order_by(SQLAudit.created_at.desc()).limit(limit).offset(offset)
@@ -203,7 +226,7 @@ def get_all_sql_history(
 
     rows = db.execute(statement).all()
 
-    return [
+    items = [
         SQLAuditResponse(
             id=audit.id,
             user_id=audit.user_id,
@@ -219,3 +242,11 @@ def get_all_sql_history(
         )
         for audit, user in rows
     ]
+
+    return SQLAuditPageResponse(
+        items = items,
+        total = total,
+        limit = limit,
+        offset = offset,
+    )
+

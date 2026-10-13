@@ -14,13 +14,24 @@ export interface SQLAudit {
 	created_at: string;
 }
 
+export interface SQLAuditPage {
+	items: SQLAudit[];
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export interface AuditHistoryParams {
+	keyword?: string;
+	execution_success?: boolean;
+	limit?: number;
+	offset?: number;
+}
+
 export async function getAuditHistory(
-	params?: {
-		keyword?: string;
-		execution_success?: boolean;
-	},
+	params?: AuditHistoryParams,
 ):
-	Promise<SQLAudit[]> {
+	Promise<SQLAuditPage> {
 
 		const response =
 			await client.get(

@@ -57,6 +57,21 @@ function AdminAuditPage() {
 	] = useState(false);
 
 	const [
+		total,
+		setTotal,
+	] = useState(0);
+
+	const [
+		currentPage,
+		setCurrentPage,
+	] = useState(1);
+
+	const [
+		pageSize,
+		setPageSize,
+	] = useState(20);
+
+	const [
 		selectedAudit,
 		setSelectedAudit,
 	] = useState<
@@ -81,10 +96,14 @@ function AdminAuditPage() {
 									? undefined
 									: statusFilter ===
 										"success",
+									limit: pageSize,
+									offset:
+										(currentPage - 1) * pageSize
 						}
 					);
 				
-				setAudits(data);
+				setAudits(data.items);
+				setTotal(data.total);
 			} catch {
 				message.error(
 					"审计记录加载失败",
@@ -142,6 +161,13 @@ function AdminAuditPage() {
 	useEffect(() => {
 		void loadAudits();
 	}, [statusFilter]);
+
+	useEffect(() => {
+		void loadAudits();
+	}, [
+		currentPage,
+		pageSize,
+	]);
 
 	const columns = [
 		{
@@ -367,6 +393,27 @@ function AdminAuditPage() {
 				loading={loading}
 				columns={columns}
 				dataSource={audits}
+				pagination={{
+					current: currentPage,
+					pageSize,
+					total,
+					showSizeChanger: true,
+					showTotal:
+						(value) =>
+					`共${value}条`,
+				}}
+				onChange={(
+					pagination,
+				) => {
+					setCurrentPage(
+						pagination.current ??
+							1,
+					);
+					setPageSize(
+						pagination.pageSize ??
+							20,
+					);
+				}}
 			/>
 			<Modal
 				title={
