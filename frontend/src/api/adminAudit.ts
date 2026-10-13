@@ -44,4 +44,20 @@ export async function getAuditHistory(
 		return response.data;
 	}
 
+export async function exportAuditHistory(
+	params?: AuditHistoryParams,
+): Promise<Blob> {
+
+	const response =
+		await client.get(
+			"/sql/admin/export",
+			{
+				params,
+				responseType:
+					"blob",
+			},
+		);
+
+	return response.data;
+}
 

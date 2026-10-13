@@ -1,7 +1,10 @@
 import logging
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -248,5 +251,89 @@ def get_all_sql_history(
         total = total,
         limit = limit,
         offset = offset,
+    )
+
+
+@router.get(
+    "/admin/export",
+)
+def export_sql_history(
+    db: DatabaseSession,
+    admin_user: AdminUser,
+    keyword: str | None = None,
+    execution_success: bool | None = None,
+):
+
+    statement = select(SQLAudit, User).join(
+        User,
+        User.id == SQLAudit.user_id,
+    )
+
+    if keyword:
+        statement = statement.where(SQLAudit.sql_text.ilike(f"%{keyword}%"))
+
+    if execution_success is not None:
+        statement = statement.where(SQLAudit.execution_success == execution_success)
+
+    statement = (
+        statement.order_by(SQLAudit.created_at.desc())
+    )
+
+    rows = db.execute(statement).all()
+
+    workbook =Workbook()
+    sheet = workbook.active
+    sheet.title  = "SQL Audit"
+    sheet.append(
+        [
+            "ID",
+            "用户名",
+            "问题",
+            "SQL",
+            "校验通过",
+            "执行成功",
+            "返回行数",
+            "耗时(ms)",
+            "错误信息",
+            "时间",
+        ]
+    )
+    for audit, user in rows:
+        sheet.append(
+            [
+                audit.id,
+                user.username,
+                audit.question,
+                audit.sql_text,
+                audit.validation_passed,
+                audit.execution_success,
+                audit.row_count,
+                audit.execution_time_ms,
+                audit.error_message,
+                str(audit.created_at),
+            ]
+        )
+
+    stream = BytesIO()
+    workbook.save(stream)
+    stream.seek(0)
+
+    return StreamingResponse(
+        stream,
+        media_type=
+        (
+            "application/"
+            "vnd.openxmlformats-"
+            "officedocument."
+            "spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition":
+            (
+                "attachment;"
+                " filename="
+                "sql_audit_export.xlsx"
+            )
+        },
     )
 

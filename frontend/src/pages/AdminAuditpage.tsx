@@ -21,6 +21,7 @@ import {
 } from "antd";
 
 import {
+	exportAuditHistory,
 	getAuditHistory,
 	type SQLAudit,
 } from "../api/adminAudit";
@@ -110,6 +111,62 @@ function AdminAuditPage() {
 				);
 			} finally {
 				setLoading(false);
+			}
+		};
+
+	const handleExport =
+		async () => {
+			try {
+				const blob =
+					await exportAuditHistory(
+						{
+							keyword: keyword || undefined,
+							execution_success:
+								statusFilter ===
+								"all"
+									? undefined
+									: statusFilter ===
+										"success",
+						},
+					);
+
+				const url =
+					window.URL.createObjectURL(
+						blob,
+					);
+
+				const link =
+					document.createElement(
+						"a",
+					);
+
+				link.href = url;
+
+				link.download =
+					"sql_audit_export.xlsx";
+
+				document.body.appendChild(
+					link,
+				);
+
+				link.click();
+
+				document.body.removeChild(
+					link,
+				);
+
+				window.URL.revokeObjectURL(
+					url,
+				);
+
+				message.success(
+					"导出成功",
+				);
+
+			} catch {
+				message.error(
+					"导出失败",
+				);
 			}
 		};
 
@@ -312,6 +369,15 @@ function AdminAuditPage() {
 						}
 					>
 						刷新
+					</Button>
+
+					<Button
+						type="primary"
+						onClick={() =>
+							void handleExport()
+						}
+					>
+						导出Excel
 					</Button>
 				</Space>
 			}
