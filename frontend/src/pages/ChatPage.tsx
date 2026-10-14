@@ -41,6 +41,10 @@ import {
 import AnalysisMessage from "../components/AnalysisMessage";
 
 import {
+	getFeedbacks,
+} from "../api/feedback";
+
+import {
 	createFavorite,
 	deleteFavorite,
 	getFavorites,
@@ -106,6 +110,18 @@ function ChatPage() {
 			CurrentUser | null
 		>(null);
 
+	const [feedbackMap, setFeedbackMap] =
+		useState<
+			Record<
+				number,
+				"LIKE"
+				|
+				"DISLIKE"
+			>
+		>(
+			{},
+		);
+
 	const loadSessions = async () => {
 		setSessionsLoading(true);
 		
@@ -118,6 +134,37 @@ function ChatPage() {
 			setSessionsLoading(false);
 		}
 	};
+
+	const loadFeedbacks =
+		async () => {
+			try {
+				const data =
+					await getFeedbacks();
+
+				const map:
+					Record<
+						number,
+						"LIKE"
+						|
+						"DISLIKE"
+					> = {};
+
+				data.forEach(
+					(
+						feedback,
+					) => {
+						map[
+							feedback.message_id
+						] =
+							feedback.feedback_type;
+					},
+				);
+
+				setFeedbackMap(map);
+			} catch {
+				//
+			}
+		};
 
 	const loadFavorites =async () => {
 		try {
@@ -170,6 +217,7 @@ function ChatPage() {
 		void loadSessions();
 		void loadFavorites();
 		void loadCurrentUser();
+		void loadFeedbacks();
 	}, []);
 
 	useEffect(() => {
@@ -943,6 +991,24 @@ function ChatPage() {
 						onFavorite={
 							handleOpenFavorite
 						}
+						feedbackType={
+							feedbackMap[
+								chatMessage.id
+							]
+						}
+
+						onFeedbackChange={(
+							messageId,
+							feedbackType,
+						) => {
+							setFeedbackMap(
+								current => ({
+									...current,
+									[messageId]:
+										feedbackType,
+								}),
+							);
+						}}
 					/>
 				))}
 			</Space>

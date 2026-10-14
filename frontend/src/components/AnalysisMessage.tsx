@@ -1,4 +1,5 @@
 import {
+	App,
 	Button,
 	Card,
 	Collapse,
@@ -8,11 +9,14 @@ import {
 } from "antd";
 
 import {
+	DislikeOutlined,
+	LikeOutlined,
 	StarOutlined,
 } from "@ant-design/icons";
 
 import ChartPreview from "./ChartPreview";
 import ResultTable from "./ResultTable";
+import { submitFeedback } from "../api/feedback";
 
 import { getChartData } from "../utils/chart";
 
@@ -36,6 +40,17 @@ interface AnalysisMessageProps {
 	message: AnalysisMessageData;
 	onFavorite: (
 		question: string,
+	) => void;
+	feedbackType?:
+		| "LIKE"
+		| "DISLIKE";
+
+	onFeedbackChange?: (
+		messageId: number,
+
+		feedbackType:
+			| "LIKE"
+			| "DISLIKE",
 	) => void;
 }
 
@@ -63,11 +78,47 @@ function formatDateTime(
 function AnalysisMessage({
 	message,
 	onFavorite,
+	feedbackType,
+	onFeedbackChange,
 }: AnalysisMessageProps) {
 	const chartData = getChartData(
 		message.columns,
 		message.rows,
 	);
+
+	const {
+		message: messageApi,
+	} = App.useApp();
+
+	const handleFeedback =
+		async (
+			type:
+				| "LIKE"
+				| "DISLIKE",
+		) => {
+			try {
+				await submitFeedback(
+					message.id,
+					type,
+				);
+
+				onFeedbackChange?.(
+					message.id,
+					type,
+				);
+
+				messageApi.success(
+					type === "LIKE"
+						? "感谢点赞"
+						: "感谢反馈",
+				);
+				window.location.reload();
+			} catch {
+				messageApi.error(
+					"提交反馈失败",
+				);
+			}
+		};
 	
 	const createdAt = formatDateTime(
 		message.created_at,
@@ -199,6 +250,63 @@ function AnalysisMessage({
 					rows={message.rows}
 				/>
 			</Card>
+
+			<Space
+				style={{
+					marginTop: 12,
+				}}
+			>
+				<Button
+					type={
+						feedbackType === "LIKE"
+							? "primary"
+							: "default"
+					}
+					icon={
+						<LikeOutlined />
+					}
+					onClick={() => {
+						if (
+							feedbackType ===
+								"LIKE"
+						) {
+							return;
+						}
+
+						void handleFeedback(
+							"LIKE",
+						);
+					}}
+				>
+					有帮助
+				</Button>
+
+				<Button
+					type={
+						feedbackType === "DISLIKE"
+							? "primary"
+							: "default"
+					}
+					danger
+					icon={
+						<DislikeOutlined />
+					}
+					onClick={() => {
+						if (
+							feedbackType ===
+								"DISLIKE"
+						) {
+							return;
+						}
+						
+						void handleFeedback(
+							"DISLIKE",
+						);
+					}}
+				>
+					没帮助
+				</Button>
+			</Space>
 
 			<Collapse
 				style={{

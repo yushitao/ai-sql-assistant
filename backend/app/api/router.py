@@ -6,6 +6,7 @@ from app.api.routes import (
     chat_sessions,
     database_schema,
     favorite_queries,
+    feedback,
     sql_queries,
     test_results,
     users,
@@ -25,3 +26,9 @@ api_router.include_router(
     prefix="/favorites",
     tags=["收藏查询"],
 )
+api_router.include_router(
+    feedback.router,
+    prefix="/feedback",
+    tags=["Feedback"],
+)
+
