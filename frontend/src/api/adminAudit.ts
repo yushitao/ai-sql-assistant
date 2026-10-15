@@ -28,6 +28,9 @@ export interface SQLAuditStats {
 	success_rate: number;
 	failure_rate: number;
 	avg_execution_time_ms: number;
+	like_count: number;
+	dislike_count: number;
+	satisfaction_rate: number;
 }
 
 export interface SQLAuditTrendItem {

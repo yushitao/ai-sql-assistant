@@ -13,6 +13,7 @@ from app.core.dependencies import (
     CurrentUser,
     DatabaseSession,
 )
+from app.models.feedback import FeedbackType, QueryFeedback
 from app.models.sql_audit import SQLAudit
 from app.models.user import User
 from app.schemas.sql_audit import (
@@ -317,6 +318,57 @@ def get_sql_audit_stats(
 
     failure_rate = failure_count / total * 100 if total > 0 else 0.0
 
+    feedback_statement = select(
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        QueryFeedback.feedback_type
+                        == FeedbackType.LIKE,
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        QueryFeedback.feedback_type
+                        == FeedbackType.DISLIKE,
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
+    )
+
+    feedback_row = db.execute(
+        feedback_statement
+    ).one()
+
+    like_count = int(
+        feedback_row[0] or 0
+    )
+
+    dislike_count = int(
+        feedback_row[1] or 0
+    )
+
+    feedback_total = (
+        like_count + dislike_count
+    )
+
+    satisfaction_rate = (
+        like_count / feedback_total * 100
+        if feedback_total > 0
+        else 0.0
+    )
+
     return SQLAuditStatsResponse(
         total=total,
         success_count=success_count,
@@ -324,6 +376,9 @@ def get_sql_audit_stats(
         success_rate=round(success_rate, 2),
         failure_rate=round(failure_rate, 2),
         avg_execution_time_ms=round(avg_execution_time_ms, 3),
+        like_count=like_count,
+        dislike_count=dislike_count,
+        satisfaction_rate=round(satisfaction_rate,2),
     )
 
 @router.get(

@@ -99,6 +99,9 @@ function AdminAuditPage() {
 		success_rate: 0,
 		failure_rate: 0,
 		avg_execution_time_ms: 0,
+		like_count: 0,
+		dislike_count: 0,
+		satisfaction_rate: 0,
 	});
 
 	const [
@@ -466,7 +469,7 @@ function AdminAuditPage() {
 					marginBottom: 20,
 				}}
 			>
-				<Col xs={24} sm={12} lg={6}>
+				<Col xs={24} sm={12} md={8} lg={4}>
 					<Card>
 						<Statistic
 							title="总查询数"
@@ -476,7 +479,7 @@ function AdminAuditPage() {
 					</Card>
 				</Col>
 
-				<Col xs={24} sm={12} lg={6}>
+				<Col xs={24} sm={12} md={8} lg={4}>
 					<Card>
 						<Statistic
 							title="成功率"
@@ -491,7 +494,7 @@ function AdminAuditPage() {
 					</Card>
 				</Col>
 
-				<Col xs={24} sm={12} lg={6}>
+				<Col xs={24} sm={12} md={8} lg={4}>
 					<Card>
 						<Statistic
 							title="失败率"
@@ -506,7 +509,7 @@ function AdminAuditPage() {
 					</Card>
 				</Col>
 
-				<Col xs={24} sm={12} lg={6}>
+				<Col xs={24} sm={12} md={8} lg={4}>
 					<Card>
 						<Statistic
 							title="平均耗时"
@@ -514,6 +517,40 @@ function AdminAuditPage() {
 							precision={3}
 							suffix="ms"
 							loading={statsLoading}
+						/>
+					</Card>
+				</Col>
+
+				<Col xs={24} sm={12} md={8} lg={4}>
+					<Card>
+						<Statistic
+							title={
+								<Space
+								size="small"
+								wrap
+								>
+									<span>
+										满意率
+									</span>
+
+									<Tag color="green">
+										赞{stats.like_count}
+									</Tag>
+
+									<Tag color="red">
+										踩{stats.dislike_count}
+									</Tag>
+								</Space>
+							}
+							value={
+								stats.satisfaction_rate
+							}
+							precision={2}
+							suffix="%"
+							loading={statsLoading}
+							valueStyle={{
+								color: "#1677ff",
+							}}
 						/>
 					</Card>
 				</Col>

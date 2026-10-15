@@ -18,22 +18,23 @@ class FeedbackType(
     LIKE = "LIKE"
     DISLIKE = "DISLIKE"
 
+
 class QueryFeedback(Base):
     __tablename__ = "query_feedback"
 
     id: Mapped[int] = mapped_column(
-            primary_key=True,
-        )
+        primary_key=True,
+    )
 
     user_id: Mapped[int] = mapped_column(
-            ForeignKey("users.id"),
-            nullable=False,
-        )
+        ForeignKey("users.id"),
+        nullable=False,
+    )
 
     message_id: Mapped[int] = mapped_column(
-            ForeignKey("chat_messages.id"),
-            nullable=False,
-        )
+        ForeignKey("chat_messages.id"),
+        nullable=False,
+    )
 
     feedback_type: Mapped[FeedbackType] = mapped_column(
         SAEnum(FeedbackType),
@@ -45,4 +46,3 @@ class QueryFeedback(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
-

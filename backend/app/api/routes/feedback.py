@@ -15,6 +15,7 @@ from app.schemas.feedback import (
 
 router = APIRouter()
 
+
 @router.post("")
 def create_feedback(
     request_data: FeedbackCreateRequest,
@@ -22,17 +23,14 @@ def create_feedback(
     current_user: CurrentUser,
 ):
     existing = db.scalar(
-        select(QueryFeedback)
-        .where(
+        select(QueryFeedback).where(
             QueryFeedback.user_id == current_user.id,
             QueryFeedback.message_id == request_data.message_id,
         )
     )
 
     if existing is not None:
-        existing.feedback_type = (
-            request_data.feedback_type
-        )
+        existing.feedback_type = request_data.feedback_type
 
         db.commit()
 
@@ -43,9 +41,7 @@ def create_feedback(
     feedback = QueryFeedback(
         user_id=current_user.id,
         message_id=request_data.message_id,
-        feedback_type=FeedbackType(
-            request_data.feedback_type
-        ),
+        feedback_type=FeedbackType(request_data.feedback_type),
     )
 
     db.add(feedback)
@@ -55,6 +51,7 @@ def create_feedback(
         "success": True,
     }
 
+
 @router.get("")
 def get_feedbacks(
     db: DatabaseSession,
@@ -62,11 +59,7 @@ def get_feedbacks(
 ):
     feedbacks = list(
         db.scalars(
-            select(QueryFeedback)
-            .where(
-                QueryFeedback.user_id
-                == current_user.id
-            )
+            select(QueryFeedback).where(QueryFeedback.user_id == current_user.id)
         ).all()
     )
 
@@ -77,5 +70,3 @@ def get_feedbacks(
         }
         for feedback in feedbacks
     ]
-
-
