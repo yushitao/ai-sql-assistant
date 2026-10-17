@@ -112,7 +112,7 @@ function AnalysisMessage({
 						? "感谢点赞"
 						: "感谢反馈",
 				);
-				window.location.reload();
+				//window.location.reload();
 			} catch {
 				messageApi.error(
 					"提交反馈失败",
@@ -126,7 +126,7 @@ function AnalysisMessage({
 
 	return (
 		<Space
-			direction="vertical"
+			orientation="vertical"
 			size="middle"
 			style={{
 				width: "100%",

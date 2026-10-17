@@ -15,7 +15,7 @@ import {
 	Card,
 	Col,
 	Input,
-	List,
+	Listy,
 	message,
 	Modal,
 	Radio,
@@ -611,8 +611,10 @@ function AdminAuditPage() {
 							precision={2}
 							suffix="%"
 							loading={statsLoading}
-							valueStyle={{
-								color: "#3f8600",
+							styles={{
+								content: {
+									color: "#3f8600",
+								},
 							}}
 						/>
 					</Card>
@@ -626,8 +628,10 @@ function AdminAuditPage() {
 							precision={2}
 							suffix="%"
 							loading={statsLoading}
-							valueStyle={{
-								color: "#cf1322"
+							styles={{
+								content: {
+									color: "#cf1322",
+								},
 							}}
 						/>
 					</Card>
@@ -672,8 +676,10 @@ function AdminAuditPage() {
 							precision={2}
 							suffix="%"
 							loading={statsLoading}
-							valueStyle={{
-								color: "#1677ff",
+							styles={{
+								content: {
+									color: "#1677ff",
+								},
 							}}
 						/>
 					</Card>
@@ -978,6 +984,9 @@ function AdminAuditPage() {
 					marginBottom: 16,
 				}}
 			>
+
+				{/*
+				  *List接口被新版本弃用，改用Listy
 				<List
 					dataSource={topQuestions}
 					locale={{
@@ -1026,6 +1035,83 @@ function AdminAuditPage() {
 					</List.Item>
 					)}
 				/>
+				  */}
+
+				{topQuestions.length === 0 ? (
+					<Typography.Text
+						type="secondary"
+					>
+						当前时间范围内暂无问题数据
+					</Typography.Text>
+				) : (
+					<Listy
+						items={topQuestions}
+						rowKey={(item) =>
+							item.question
+						}
+						itemRender={(
+							item,
+							index,
+						) => (
+							<div
+								style={{
+									display: "flex",
+									alignItems: "center",
+									justifyContent:
+										"space-between",
+									gap: 16,
+									padding: "12px 0",
+								}}
+							>
+								<Space
+									style={{
+										flex: 1,
+										minWidth: 0,
+									}}
+								>
+									<div
+										style={{
+											width: 28,
+											height: 28,
+											lineHeight: "28px",
+											textAlign: "center",
+											borderRadius: "50%",
+											background:
+												index < 3
+												? "#1677ff"
+												: "#f0f0f0",
+											color:
+												index < 3
+												? "#ffffff"
+												: "#595959",
+											fontWeight: 600,
+											flexShrink: 0,
+										}}
+									>
+										{index + 1}
+									</div>
+
+									<Typography.Text
+										ellipsis={{
+											tooltip: item.question,
+										}}
+									>
+										{item.question}
+									</Typography.Text>
+								</Space>
+
+								<Tag
+									color="blue"
+									style={{
+										flexShrink: 0,
+									}}
+								>
+									{item.count} 次
+								</Tag>
+							</div>
+						)}
+					/>
+				)}
 			</Card>
 
 			<Space

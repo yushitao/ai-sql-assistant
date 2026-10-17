@@ -950,7 +950,7 @@ function ChatPage() {
 							"center",
 					}}
 				>
-					<Space direction="vertical">
+					<Space orientation="vertical">
 						<Spin size="large" />
 						<Text>
 							AI正在生成SQL并分析数据...
@@ -978,7 +978,7 @@ function ChatPage() {
 
 		{messages.length > 0 && (
 			<Space
-				direction="vertical"
+				orientation="vertical"
 				size={32}
 				style={{
 					width: "100%",

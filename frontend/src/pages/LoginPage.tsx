@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { 
+	useState,
+	useEffect,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
 import axios from "axios";
@@ -27,6 +30,25 @@ function LoginPage() {
 
 	const [loading, setLoading] =
 		useState(false);
+
+	useEffect(() => {
+		const authNotice =
+			sessionStorage.getItem(
+				"auth_notice",
+			);
+
+		if (!authNotice) {
+			return;
+		}
+
+		message.warning(
+			authNotice,
+		);
+
+		sessionStorage.removeItem(
+			"auth_notice",
+		);
+	}, []);
 
 	const handleLogin = async() => {
 		const normalizedUsername =
