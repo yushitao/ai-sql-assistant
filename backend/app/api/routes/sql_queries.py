@@ -25,6 +25,7 @@ from app.schemas.sql_audit import (
     SQLAuditResponse,
     SQLAuditStatsResponse,
     SQLAuditTrendItem,
+    TopQuestionItem,
 )
 from app.schemas.sql_query import (
     SQLExecuteRequest,
@@ -670,6 +671,69 @@ def get_audit_quality_trend(
         )
 
     return result
+
+@router.get(
+    "/admin/top-questions",
+    response_model=list[TopQuestionItem],
+)
+def get_top_questions(
+    db: DatabaseSession,
+    _admin_user: AdminUser,
+    days: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=365,
+        ),
+    ] = 30,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=50,
+        ),
+    ] = 10,
+) -> list[TopQuestionItem]:
+    end_date = datetime.now(timezone.utc).date()
+
+    start_date = end_date - timedelta(days= days-1)
+
+    question_date = func.date(SQLAudit.created_at)
+
+    question_count = func.count(SQLAudit.id)
+
+    statement = (
+        select(
+            SQLAudit.question,
+            question_count.label("count"),
+        )
+        .where(
+            SQLAudit.question.is_not(None),
+            func.trim(SQLAudit.question) != "",
+            question_date >= start_date.isoformat(),
+        )
+        .group_by(SQLAudit.question)
+        .order_by(
+            question_count.desc(),
+            SQLAudit.question.asc(),
+        )
+        .limit(limit)
+    )
+
+    rows = (
+        db.execute(statement)
+        .mappings()
+        .all()
+    )
+
+    return [
+        TopQuestionItem(
+            question=str(row["question"]),
+            count=int(row["count"] or 0),
+        )
+        for row in rows
+    ]
+
 
 @router.get(
     "/admin/export",

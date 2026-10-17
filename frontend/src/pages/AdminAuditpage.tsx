@@ -15,6 +15,7 @@ import {
 	Card,
 	Col,
 	Input,
+	List,
 	message,
 	Modal,
 	Radio,
@@ -33,11 +34,13 @@ import {
 	//getAuditTrend,
 	//getSatisfactionTrend,
 	getAuditQualityTrend,
+	getTopQuestions,
 	type SQLAudit,
 	type SQLAuditStats,
 	//type SQLAuditTrendItem,
 	//type SatisfactionTrendItem,
 	type AuditQualityTrendItem,
+	type TopQuestionItem,
 } from "../api/adminAudit";
 
 import {
@@ -129,6 +132,17 @@ function AdminAuditPage() {
 	const [
 		trendLoading,
 		setTrendLoading,
+	] = useState(false);
+
+	//增加Top问题统计
+	const [
+		topQuestions,
+		setTopQuestions,
+	] = useState<TopQuestionItem[]>([]);
+
+	const [
+		topQuestionsLoading,
+		setTopQuestionsLoading,
 	] = useState(false);
 
 	/*
@@ -258,6 +272,27 @@ function AdminAuditPage() {
 			}
 		};
 
+	const loadTopQuestions =
+		async () => {
+			setTopQuestionsLoading(true);
+
+			try {
+				const data =
+					await getTopQuestions(
+						trendDays,
+						10,
+					);
+
+					setTopQuestions(data);
+			} catch {
+				message.error(
+					"热门问题加载失败",
+				);
+			} finally {
+				setTopQuestionsLoading(false);
+			}
+		};
+
 	const handleExport =
 		async () => {
 			try {
@@ -367,6 +402,8 @@ function AdminAuditPage() {
 
 	useEffect (() => {
 		void loadQualityTrend();
+
+		void loadTopQuestions();
 	}, [trendDays]);
 
 	useEffect(() => {
@@ -523,12 +560,15 @@ function AdminAuditPage() {
 						loading={
 							loading ||
 								statsLoading ||
-								trendLoading
+								trendLoading ||
+								topQuestionsLoading
 						}
 						onClick={() => {
 							void loadAudits()
 							void loadStats();
 							void loadQualityTrend();
+
+							void loadTopQuestions();
 						}
 
 						}
@@ -924,6 +964,67 @@ function AdminAuditPage() {
 								? 410
 								: 360,
 					}}
+				/>
+			</Card>
+
+			<Card
+				title={
+					`最近${trendDays}天热门问题 TOP 10`
+				}
+				loading={
+					topQuestionsLoading
+				}
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				<List
+					dataSource={topQuestions}
+					locale={{
+						emptyText:
+							"当前时间范围内暂无问题数据",
+					}}
+					renderItem={(
+						item,
+						index,
+					) => (
+					<List.Item
+						extra={
+							<Tag color="blue">
+								{item.count}次
+							</Tag>
+						}
+					>
+						<List.Item.Meta
+							avatar={
+								<div
+									style={{
+										width: 28,
+										height: 28,
+										lineHeight: "28px",
+										textAlign: "center",
+										borderRadius: "50%",
+										background: index < 3 ? "#1677ff" : "#f0f0f0",
+										color: index < 3 ? "#ffffff" : "#595959",
+										fontWeight: 600,
+									}}
+								>
+									{index + 1}
+								</div>
+							}
+							title={
+								<Typography.Text
+									ellipsis={{
+										tooltip:
+											item.question,
+									}}
+								>
+									{item.question}
+								</Typography.Text>
+							}
+						/>
+					</List.Item>
+					)}
 				/>
 			</Card>
 

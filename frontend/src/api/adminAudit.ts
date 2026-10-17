@@ -51,6 +51,11 @@ export interface AuditQualityTrendItem {
 	satisfaction_rate: number | null;
 }
 
+export interface TopQuestionItem {
+	question: string;
+	count: number;
+}
+
 export interface AuditHistoryParams {
 	keyword?: string;
 	execution_success?: boolean;
@@ -125,6 +130,24 @@ export async function getAuditQualityTrend(
 					},
 				},
 			);
+
+	return response.data;
+}
+
+export async function getTopQuestions(
+	days = 30,
+	limit = 10,
+): Promise<TopQuestionItem[]> {
+	const response =
+		await client.get<TopQuestionItem[]>(
+			"/sql/admin/top-questions",
+			{
+				params: {
+					days,
+					limit,
+				},
+			},
+		);
 
 	return response.data;
 }

@@ -53,3 +53,7 @@ class AuditQualityTrendItem(BaseModel):
     dislike_count: int
     satisfaction_rate: float | None
 
+class TopQuestionItem(BaseModel):
+    question: str
+    count: int
+
