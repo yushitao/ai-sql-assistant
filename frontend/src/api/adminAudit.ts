@@ -38,6 +38,19 @@ export interface SQLAuditTrendItem {
 	count: number;
 }
 
+export interface SatisfactionTrendItem {
+	date: string;
+	satisfaction_rate: number;
+}
+
+export interface AuditQualityTrendItem {
+	date: string;
+	query_count: number;
+	like_count: number;
+	dislike_count: number;
+	satisfaction_rate: number | null;
+}
+
 export interface AuditHistoryParams {
 	keyword?: string;
 	execution_success?: boolean;
@@ -85,8 +98,36 @@ export async function getAuditTrend():
 				"/sql/admin/trend",
 			);
 
-			return response.data;
+		return response.data;
 	}
+
+export async function getSatisfactionTrend():
+	Promise<SatisfactionTrendItem[]> {
+		const response =
+			await client.get(
+				"/sql/admin/satisfaction-trend",
+			);
+
+		return response.data;
+	}
+
+export async function getAuditQualityTrend(
+	days = 30,
+): Promise<AuditQualityTrendItem[]> {
+	const response =
+		await client.get<
+			AuditQualityTrendItem[]
+			>(
+				"/sql/admin/quality-trend",
+				{
+					params: {
+						days,
+					},
+				},
+			);
+
+	return response.data;
+}
 
 export async function exportAuditHistory(
 	params?: AuditHistoryParams,

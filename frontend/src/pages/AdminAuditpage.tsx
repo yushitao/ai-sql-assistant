@@ -30,10 +30,14 @@ import {
 	exportAuditHistory,
 	getAuditHistory,
 	getAuditStats,
-	getAuditTrend,
+	//getAuditTrend,
+	//getSatisfactionTrend,
+	getAuditQualityTrend,
 	type SQLAudit,
 	type SQLAuditStats,
-	type SQLAuditTrendItem,
+	//type SQLAuditTrendItem,
+	//type SatisfactionTrendItem,
+	type AuditQualityTrendItem,
 } from "../api/adminAudit";
 
 import {
@@ -109,10 +113,39 @@ function AdminAuditPage() {
 		setStatsLoading,
 	] = useState(false);
 
+	//唯一时间范围来源，默认30天
+	const [
+		trendDays,
+		setTrendDays,
+	] = useState(30);
+
+	//同时包含查询量和满意率
+	const [
+		qualityTrend,
+		setQualityTrend,
+	] = useState<AuditQualityTrendItem[]>([]);
+
+	//切换7/30/90天时显示加载状态
+	const [
+		trendLoading,
+		setTrendLoading,
+	] = useState(false);
+
+	/*
+	 * 改用查询量和满意率双轴图，其它接口代提这个接口
 	const [
 		trendData,
 		setTrendData,
 	] = useState<SQLAuditTrendItem[]>([]);
+	 */
+
+	/*
+	 * 改用查询量和满意率双轴图，其它接口代提这个接口
+	const [
+		satisfactionTrend,
+		setSatisfactionTrend,
+	] = useState<SatisfactionTrendItem[]>([]);
+	 */
 
 	const loadAudits =
 		async () => {
@@ -177,6 +210,8 @@ function AdminAuditPage() {
 		}
 	};
 
+	/*
+	 * 改用查询量和满意率双轴图，其它接口代提这个接口
 	const loadTrend = async () => {
 		try {
 			const data =
@@ -187,6 +222,41 @@ function AdminAuditPage() {
 			//
 		}
 	};
+	 */
+
+	/*
+	 * 改用查询量和满意率双轴图，其它接口代提这个接口
+	const loadSatisfactionTrend = async () => {
+		try {
+			const data =
+				await getSatisfactionTrend();
+
+			setSatisfactionTrend(data);
+		} catch {
+			//
+		}
+	};
+	 */
+
+	const loadQualityTrend =
+		async () => {
+			setTrendLoading(true);
+
+			try {
+				const data =
+					await getAuditQualityTrend(
+						trendDays,
+					);
+
+				setQualityTrend(data);
+			} catch {
+				message.error(
+					"查询量与满意率趋势加载失败",
+				);
+			} finally {
+				setTrendLoading(false);
+			}
+		};
 
 	const handleExport =
 		async () => {
@@ -290,8 +360,14 @@ function AdminAuditPage() {
 
 		void loadStats();
 
-		void loadTrend();
+		//void loadTrend();
+
+		//void loadSatisfactionTrend();
 	}, []);
+
+	useEffect (() => {
+		void loadQualityTrend();
+	}, [trendDays]);
 
 	useEffect(() => {
 		void loadAudits();
@@ -444,9 +520,17 @@ function AdminAuditPage() {
 					</Button>
 
 					<Button
-						loading={loading}
-						onClick={() =>
+						loading={
+							loading ||
+								statsLoading ||
+								trendLoading
+						}
+						onClick={() => {
 							void loadAudits()
+							void loadStats();
+							void loadQualityTrend();
+						}
+
 						}
 					>
 						刷新
@@ -556,6 +640,8 @@ function AdminAuditPage() {
 				</Col>
 			</Row>
 
+			{/*
+	 			* 改用查询量和满意率双轴图，其它接口代提这个接口
 			<Card
 				title="最近7天查询量"
 				style={{
@@ -600,6 +686,243 @@ function AdminAuditPage() {
 					}}
 					style={{
 						height: 300,
+					}}
+				/>
+			</Card>
+			  */}
+
+			{/*
+	 			* 改用查询量和满意率双轴图，其它接口代提这个接口
+			<Card
+				title="最近7天满意率"
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				<ReactECharts
+					option={{
+						tooltip: {
+							trigger: "axis",
+						},
+						
+						xAxis: {
+							type: "category",
+							data:
+								satisfactionTrend
+								.map(
+									item =>
+									item.date,
+								)
+								.reverse(),
+						},
+
+						yAxis: {
+							type: "value",
+							max: 100,
+						},
+
+						series: [
+							{
+								type: "line",
+								smooth: true,
+								areaStyle: {},
+								data:
+									satisfactionTrend
+									.map(
+										item =>
+											item.satisfaction_rate,
+									)
+									.reverse(),
+							},
+						],
+					}}
+					style={{
+						height: 300,
+					}}
+				/>
+			</Card>
+			  */}
+
+			<Card
+				title={
+					`最近${trendDays}天查询量与满意率`
+				}
+				extra={
+					<Radio.Group
+						value={trendDays}
+						optionType="button"
+						buttonStyle="solid"
+						onChange={(event) => {
+							setTrendDays(
+								Number(
+									event.target.value,
+								),
+							);
+						}}
+					>
+						<Radio.Button value={7}>
+							7天
+						</Radio.Button>
+
+						<Radio.Button value={30}>
+							30天
+						</Radio.Button>
+
+						<Radio.Button value={90}>
+							90天
+						</Radio.Button>
+					</Radio.Group>
+				}
+				loading={trendLoading}
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				<ReactECharts
+					option={{
+						tooltip: {
+							trigger: "axis",
+							axisPointer: {
+								type: "cross",
+							},
+						},
+
+						legend: {
+							data: [
+								"查询量",
+								"满意率",
+							],
+						},
+
+						grid: {
+							left: 65,
+							right: 75,
+							top: 60,
+							bottom:
+								trendDays === 90
+								? 85
+								: 55,
+						},
+
+						xAxis: {
+							type: "category",
+							boundaryGap: true,
+							data:
+								qualityTrend.map(
+									(item) =>
+									item.date,
+								),
+							axisLabel: {
+								formatter: (
+									value: string,
+								) => value.slice(5),
+
+								rotate:
+									trendDays === 90
+									? 45
+									: 0,
+
+								interval:
+									trendDays === 7
+									? 0
+									: "auto",
+							},
+						},
+
+						yAxis: [
+							{
+								type: "value",
+								name: "查询量",
+								min: 0,
+								minInterval: 1,
+								position: "left",
+								axisLabel: {
+									formatter:
+										"{value}次",
+								},
+							},
+							
+							{
+								type: "value",
+								name: "满意率",
+								min: 0,
+								max: 100,
+								positon: "right",
+								axisLabel: {
+									formatter:
+										"{value}%",
+								},
+							},
+						],
+
+						series: [
+							{
+								name : "查询量",
+								type: "bar",
+								yAxisIndex: 0,
+								barMaxWidth: 40,
+								data:
+									qualityTrend.map(
+										(item) =>
+										item.query_count,
+									),
+								itemStyle: {
+									color: "#5470c6",
+									borderRadius: [
+										4,
+										4,
+										0,
+										0,
+									],
+								},
+							},
+
+							{
+								name: "满意率",
+								type: "line",
+								yAxisIndex: 1,
+								smooth: true,
+								connectNulls: false,
+								symbol: "circle",
+								symbolSize: 8,
+								data:
+									qualityTrend.map(
+										(item) =>
+										item
+										.satisfaction_rate,
+									),
+								lineStyle: {
+									width: 3,
+									color: "#91cc75",
+								},
+								itemStyle: {
+									color: "#91cc75",
+								},
+							},
+						],
+
+						dataZoom:
+							trendDays === 90
+								? [
+									{
+										type: "inside",
+										start: 65,
+										end: 100,
+									},
+									{
+										type: "slider",
+										start: 65,
+										end: 100,
+										bottom: 10,
+									},
+								]
+								: [],
+					}}
+					style={{
+						height:
+							trendDays === 90
+								? 410
+								: 360,
 					}}
 				/>
 			</Card>

@@ -41,3 +41,15 @@ class SQLAuditStatsResponse(BaseModel):
 class SQLAuditTrendItem(BaseModel):
     date: str
     count: int
+
+class SatisfactionTrendItem(BaseModel):
+    date: str
+    satisfaction_rate: float
+
+class AuditQualityTrendItem(BaseModel):
+    date: str
+    query_count: int
+    like_count: int
+    dislike_count: int
+    satisfaction_rate: float | None
+

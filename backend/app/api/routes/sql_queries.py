@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from typing import Annotated
 
@@ -13,10 +14,13 @@ from app.core.dependencies import (
     CurrentUser,
     DatabaseSession,
 )
+from app.models.chat_message import ChatMessage
 from app.models.feedback import FeedbackType, QueryFeedback
 from app.models.sql_audit import SQLAudit
 from app.models.user import User
 from app.schemas.sql_audit import (
+    AuditQualityTrendItem,
+    SatisfactionTrendItem,
     SQLAuditPageResponse,
     SQLAuditResponse,
     SQLAuditStatsResponse,
@@ -318,7 +322,7 @@ def get_sql_audit_stats(
 
     failure_rate = failure_count / total * 100 if total > 0 else 0.0
 
-    feedback_statement = select(
+    feedback_statement = (select(
         func.coalesce(
             func.sum(
                 case(
@@ -345,6 +349,15 @@ def get_sql_audit_stats(
             ),
             0,
         ),
+    )
+        .select_from(
+            QueryFeedback
+        )
+        .join(
+            ChatMessage,
+            ChatMessage.id
+            == QueryFeedback.message_id,
+        )
     )
 
     feedback_row = db.execute(
@@ -424,6 +437,239 @@ def get_sql_audit_trend(
         for row in rows
     ]
 
+@router.get(
+    "/admin/satisfaction-trend",
+    response_model=list[SatisfactionTrendItem],
+)
+def get_satisfaction_trend(
+    db: DatabaseSession,
+    admin_user: AdminUser,
+):
+    statement = text(
+        """
+        SELECT
+            substr(
+                created_at,
+                1,
+                10
+            ) AS date,
+
+            SUM(
+                CASE
+                    WHEN feedback_type="LIKE"
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS like_count,
+
+            SUM(
+                CASE
+                    WHEN feedback_type="DISLIKE"
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS dislike_count
+
+        FROM query_feedback qf
+
+        JOIN chat_messages cm
+
+        ON cm.id = qf.message_id
+
+        GROUP BY
+        substr(
+            cm.created_at,
+            1,
+            10
+        )
+
+        ORDER BY date DESC
+
+        LIMIT 7
+        """
+    )
+
+    rows = (
+        db.execute(statement)
+        .mappings()
+        .all()
+    )
+
+    result = []
+
+    for row in rows:
+        like_count = row["like_count"] or 0
+        dislike_count = row["dislike_count"] or 0
+        total = like_count + dislike_count
+
+        rate = (like_count / total * 100
+                if total > 0
+                else 0
+               )
+
+        result.append(
+            SatisfactionTrendItem(
+                date=row["date"],
+                satisfaction_rate=round(rate,2),
+            )
+        )
+
+    return result
+
+@router.get(
+    "/admin/quality-trend",
+    response_model=list[
+        AuditQualityTrendItem
+    ],
+)
+def get_audit_quality_trend(
+    db: DatabaseSession,
+    admin_user: AdminUser,
+    days: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=365,
+        ),
+    ] = 30,
+) -> list[AuditQualityTrendItem]:
+    end_date = datetime.now(timezone.utc).date()
+
+    start_date = (
+        end_date - timedelta(days=days-1)
+    )
+
+    start_date_text = (start_date.isoformat())
+    query_date = func.date(
+        SQLAudit.created_at
+    )
+    query_statement =(
+        select(
+            query_date.label("date"),
+            func.count(SQLAudit.id)
+            .label("query_count"),
+        )
+        .where(
+            query_date >= start_date_text
+        )
+        .group_by(
+            query_date
+        )
+    )
+
+    query_rows = (
+        db.execute(query_statement)
+        .mappings()
+        .all()
+    )
+
+    query_count_map = {
+        str(row["date"]):
+        int(row["query_count"] or 0 )
+        for row in query_rows
+    }
+
+    message_date = func.date(
+        ChatMessage.created_at
+    )
+
+    feedback_statement = (
+        select(
+            message_date.label("date"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            QueryFeedback
+                            .feedback_type
+                            == FeedbackType
+                            .LIKE,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("like_count"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            QueryFeedback
+                            .feedback_type
+                            == FeedbackType
+                            .DISLIKE,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("dislike_count"),
+        )
+        .join(
+            ChatMessage,
+            ChatMessage.id
+            == QueryFeedback.message_id,
+        )
+        .where(
+            message_date >= start_date_text
+        )
+        .group_by(message_date)
+    )
+
+    feedback_rows = (
+        db.execute(feedback_statement)
+        .mappings()
+        .all()
+    )
+
+    feedback_map = {
+        str(row["date"]): {
+            "like_count": int(row["like_count"] or 0),
+            "dislike_count": int(row["dislike_count"] or 0),
+        }
+        for row in feedback_rows
+    }
+
+    result: list[AuditQualityTrendItem] = []
+
+    for day_offset in range(days):
+        current_date = (start_date + timedelta(days=day_offset))
+        date_text = (current_date.isoformat())
+        feedback_counts = (feedback_map.get(
+            date_text,
+            {
+                "like_count": 0,
+                "dislike_count": 0,
+            },
+        ))
+
+        like_count = (feedback_counts["like_count"])
+        dislike_count = (feedback_counts["dislike_count"])
+        feedback_total = (like_count + dislike_count)
+        satisfaction_rate = (
+            round(like_count / feedback_total * 100, 2)
+            if feedback_total > 0
+            else None
+        )
+
+        result.append(
+            AuditQualityTrendItem(
+                date=date_text,
+                query_count=(
+                    query_count_map.get(
+                        date_text,
+                        0,
+                    )
+                ),
+                like_count=(like_count),
+                dislike_count=(dislike_count),
+                satisfaction_rate=satisfaction_rate,
+            )
+        )
+
+    return result
 
 @router.get(
     "/admin/export",
