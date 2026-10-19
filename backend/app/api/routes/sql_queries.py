@@ -21,6 +21,7 @@ from app.models.user import User
 from app.schemas.sql_audit import (
     AuditQualityTrendItem,
     SatisfactionTrendItem,
+    SQLAuditHistoryResponse,
     SQLAuditPageResponse,
     SQLAuditResponse,
     SQLAuditStatsResponse,
@@ -170,22 +171,30 @@ def execute_sql(
 
 @router.get(
     "/history",
-    response_model=list[SQLAuditResponse],
+    response_model=list[SQLAuditHistoryResponse],
 )
 def get_my_sql_history(
     db: DatabaseSession,
     current_user: CurrentUser,
-    offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list:
     statement = (
         select(SQLAudit)
         .where(SQLAudit.user_id == current_user.id)
         .order_by(SQLAudit.created_at.desc())
-        .offset(offset)
         .limit(limit)
+        .offset(offset)
     )
-    return list(db.scalars(statement).all())
+
+    audits = list(db.scalars(statement).all())
+    return [
+        SQLAuditHistoryResponse
+        .model_validate(
+            audit
+        )
+        for audit in audits
+    ]
 
 
 @router.get(

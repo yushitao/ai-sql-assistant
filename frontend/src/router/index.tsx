@@ -32,6 +32,8 @@ function AppRouter() {
 					element={<LoginPage />}
 				/>
 
+				{/*普通登陆用户可访问 */}
+
 				<Route element={<ProtectedRoute />}>
 					<Route
 						path="/chat"
@@ -42,12 +44,20 @@ function AppRouter() {
 						path="/history"
 						element={<HistoryPage />}
 					/>
+				</Route>
 
+				{/* 仅管理员可访问 */}
+				<Route
+					element={
+						<ProtectedRoute
+							requiredRole="ADMIN"
+						/>
+					}
+				>
 					<Route
 						path="/admin/audits"
 						element={<AdminAuditPage />}
 					/>
-
 				</Route>
 
 				<Route

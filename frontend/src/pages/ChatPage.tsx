@@ -1,5 +1,13 @@
-import { useEffect, useState, useRef, } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+	useEffect,
+	useState,
+	useRef,
+} from "react";
+
+import { 
+	useLocation,
+	useNavigate,
+} from "react-router-dom";
 
 import axios from "axios";
 import {
@@ -62,6 +70,8 @@ const { TextArea } = Input;
 
 function ChatPage() {
 	const navigate = useNavigate();
+
+	const location = useLocation();
 
 	const messagesEndRef =
 		useRef<HTMLDivElement | null>(null);
@@ -212,6 +222,36 @@ function ChatPage() {
 			}
 		};
 	
+	useEffect(() => {
+		const routeState =
+			location.state as {
+			permissionDenied?:
+				boolean;
+			}
+			| null;
+
+		if (
+			!routeState
+				?.permissionDenied
+		) {
+			return;
+		}
+
+		message.warning(
+			"当前账户没有管理员权限",
+		);
+
+		navigate(
+			"/chat",
+			{
+				replace: true,
+				state: null,
+			},
+		);
+	}, [
+		location.state,
+		navigate,
+	]);
 
 	useEffect(() => {
 		void loadSessions();

@@ -43,9 +43,11 @@ import {
 	type TopQuestionItem,
 } from "../api/adminAudit";
 
+/*
 import {
 	getCurrentUser,
 } from "../api/user";
+ */
 
 function AdminAuditPage() {
 	const navigate = useNavigate();
@@ -349,6 +351,7 @@ function AdminAuditPage() {
 			}
 		};
 
+	/*
 	useEffect(() => {
 		const checkAdmin =
 			async () => {
@@ -389,6 +392,7 @@ function AdminAuditPage() {
 
 		void checkAdmin();
 	}, [navigate]);
+	 */
 
 	useEffect(() => {
 		void loadAudits();
