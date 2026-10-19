@@ -163,7 +163,7 @@ function ProtectedRoute({
 			>
 				<Spin
 					size="large"
-					tip="正在验证登陆状态"
+					description="正在验证登陆状态"
 				/>
 			</div>
 		);

@@ -237,9 +237,12 @@ function ChatPage() {
 			return;
 		}
 
-		message.warning(
-			"当前账户没有管理员权限",
-		);
+		message.warning({
+			key: "permission-denied",
+			content:
+				"当前账户没有管理员权限",
+			duration: 3,
+		});
 
 		navigate(
 			"/chat",
