@@ -32,6 +32,18 @@ function LoginPage() {
 		useState(false);
 
 	useEffect(() => {
+
+		console.log(
+			"LoginPage mounted",
+		);
+
+		console.log(
+			"auth_notice =",
+			sessionStorage.getItem(
+				"auth_notice",
+			),
+		);
+
 		const authNotice =
 			sessionStorage.getItem(
 				"auth_notice",
