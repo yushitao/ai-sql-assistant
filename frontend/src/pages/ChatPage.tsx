@@ -60,9 +60,14 @@ import {
 } from "../api/favorite";
 
 import {
+	changePassword,
 	getCurrentUser,
 	type CurrentUser,
 } from "../api/user";
+
+import {
+	isGloballyHandledError,
+} from "../api/errorHandling";
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title } = Typography;
@@ -132,13 +137,39 @@ function ChatPage() {
 			{},
 		);
 
+	const [
+		passwordModalOpen,
+		setPasswordModalOpen,
+	] = useState(false);
+
+	const [
+		currentPassword,
+		setCurrentPassword,
+	] = useState("");
+
+	const [
+		newPassword,
+		setNewPassword,
+	] = useState("");
+
+	const [
+		confirmPassword,
+		setConfirmPassword,
+	] = useState("");
+
 	const loadSessions = async () => {
 		setSessionsLoading(true);
 		
 		try {
 			const data = await getChatSessions();
 			setSessions(data);
-		} catch {
+		} catch (error: unknown) {
+			if (
+				isGloballyHandledError(error)
+			) {
+				return;
+			}
+
 			message.error("会话列表加载失败");
 		} finally {
 			setSessionsLoading(false);
@@ -171,8 +202,15 @@ function ChatPage() {
 				);
 
 				setFeedbackMap(map);
-			} catch {
-				//
+			} catch (error: unknown) {
+				if (
+					isGloballyHandledError(error)
+				) {
+					return;
+				}
+				message.error(
+					"反馈状态加载失败",
+				);
 			}
 		};
 
@@ -182,7 +220,13 @@ function ChatPage() {
 				await getFavorites();
 
 			setFavorites(data);
-		} catch {
+		} catch (error: unknown) {
+			if (
+				isGloballyHandledError(error)
+			) {
+				return;
+			}
+
 			message.error("收藏加载失败");
 		}
 	};
@@ -205,7 +249,13 @@ function ChatPage() {
 			setMessages(detail.messages);
 			setQuestion("");
 
-		} catch {
+		} catch (error: unknown) {
+			if (
+				isGloballyHandledError(error)
+			) {
+				return;
+			}
+
 			message.error("会话详情加载失败");
 		}
 	};
@@ -223,16 +273,24 @@ function ChatPage() {
 		};
 	
 	useEffect(() => {
+
+		console.log(
+			"ChatPage location.state:",
+			location.state,
+		);
+
+		console.log(
+			"permission state:",
+			location.state,
+		);
+
 		const routeState =
 			location.state as {
-			permissionDenied?:
-				boolean;
-			}
-			| null;
+			permissionDenied?: boolean;
+			} | null;
 
 		if (
-			!routeState
-				?.permissionDenied
+			!routeState?.permissionDenied
 		) {
 			return;
 		}
@@ -244,6 +302,7 @@ function ChatPage() {
 			duration: 3,
 		});
 
+			/*
 		navigate(
 			"/chat",
 			{
@@ -251,9 +310,15 @@ function ChatPage() {
 				state: null,
 			},
 		);
+			 */
+		window.history.replaceState(
+			{},
+			"",
+			"/chat",
+		);
 	}, [
 		location.state,
-		navigate,
+		//navigate,
 	]);
 
 	useEffect(() => {
@@ -415,6 +480,16 @@ function ChatPage() {
 		setQuestion(templateQuestion);
 	};
 
+	const isQuestionFavorited = (
+		question: string,
+	) => {
+		return favorites.some(
+			(favorite) => 
+			favorite.question.trim()
+			=== question.trim(),
+		);
+	};
+
 	const handleOpenFavorite = (
 		question: string,
 	) => {
@@ -462,11 +537,33 @@ function ChatPage() {
 					message.success(
 						"查询已收藏",
 					);
-			} catch {
+			} catch (error: unknown) {
+				if (
+					isGloballyHandledError(error)
+				) {
+					return;
+				}
+
+				if (
+					axios.isAxiosError(error)
+				) {
+					const detail = 
+						error.response
+							?.data?.detail;
+					if (
+						typeof detail === "string"
+					) {
+						message.warning(
+							detail,
+						);
+
+						return;
+					}
+				}
 				message.error(
 					"收藏查询失败",
 				);
-			}
+			};
 		};
 
 	const handleDeleteFavorite =
@@ -488,7 +585,13 @@ function ChatPage() {
 				message.success(
 					"收藏已删除",
 				);
-			} catch {
+			} catch (error: unknown) {
+				if (
+					isGloballyHandledError(error)
+				) {
+					return;
+				}
+
 				message.error(
 					"删除收藏失败",
 				);
@@ -552,6 +655,50 @@ function ChatPage() {
 			setLoading(false);
 		}
 	};
+
+	const handleChangePassword =
+		async () => {
+			if (newPassword !== confirmPassword) {
+				message.warning(
+					"两次输入密码不一致",
+				);
+
+				return;
+			}
+
+			try {
+				await changePassword(
+					currentPassword,
+					newPassword,
+				);
+
+				message.success(
+					"密码修改成功，请重新登陆",
+				);
+
+				handleLogout();
+			} catch (error:unknown) {
+				if (
+					axios.isAxiosError(error)
+				) {
+					const detail =
+						error.response
+							?.data?.detail;
+
+					if (
+						typeof detail === "string"
+					) {
+						message.error(detail);
+						
+						return;
+					}
+				}
+
+				message.error(
+					"修改密码失败",
+				);
+			}
+		};
 
 	const handleLogout = () => {
 		localStorage.removeItem(
@@ -617,6 +764,14 @@ function ChatPage() {
 				}
 			>
 				查询历史
+			</Button>
+
+			<Button
+				onClick={() =>
+					setPasswordModalOpen(true)
+				}
+			>
+				修改密码
 			</Button>
 
 			<Button
@@ -1034,6 +1189,11 @@ function ChatPage() {
 						onFavorite={
 							handleOpenFavorite
 						}
+						isFavorited={
+							isQuestionFavorited(
+								chatMessage.question,
+							)
+						}
 						feedbackType={
 							feedbackMap[
 								chatMessage.id
@@ -1096,6 +1256,59 @@ function ChatPage() {
 				>
 					{favoriteQuestion}
 				</Typography.Paragraph>
+			</Modal>
+
+			<Modal
+				title="修改密码"
+				open={
+					passwordModalOpen
+				}
+				okText="保存"
+				cancelText="取消"
+				onOk={() =>
+					void handleChangePassword()
+				}
+				onCancel={() =>
+					setPasswordModalOpen(false)
+				}
+			>
+
+				<Space
+					direction="vertical"
+					style={{
+						width: "100%",
+					}}
+				>
+					<Input.Password
+						placeholder="当前密码"
+						value={currentPassword}
+						onChange={(event) =>
+							setCurrentPassword(
+								event.target.value,
+							)
+						}
+					/>
+
+					<Input.Password
+						placeholder="新密码"
+						value={newPassword}
+						onChange={(event) =>
+							setNewPassword(
+								event.target.value,
+							)
+						}
+					/>
+
+					<Input.Password
+						placeholder="确认新密码"
+						value={confirmPassword}
+						onChange={(event) =>
+							setConfirmPassword(
+								event.target.value,
+							)
+						}
+					/>
+				</Space>
 			</Modal>
 		</Layout>
 	);

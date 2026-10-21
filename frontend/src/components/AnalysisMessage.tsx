@@ -38,9 +38,13 @@ export interface AnalysisMessageData {
 
 interface AnalysisMessageProps {
 	message: AnalysisMessageData;
-	onFavorite: (
+
+	onFavorite?: (
 		question: string,
 	) => void;
+
+	isFavorited?: boolean;
+
 	feedbackType?:
 		| "LIKE"
 		| "DISLIKE";
@@ -78,6 +82,7 @@ function formatDateTime(
 function AnalysisMessage({
 	message,
 	onFavorite,
+	isFavorited,
 	feedbackType,
 	onFeedbackChange,
 }: AnalysisMessageProps) {
@@ -179,15 +184,19 @@ function AnalysisMessage({
 				}
 				extra={
 					<Button
+						disabled={isFavorited}
 						type="text"
 						icon={<StarOutlined />}
 						onClick={() =>
-							onFavorite(
+							onFavorite?.(
 								message.question,
 							)
 						}
 					>
-						收藏
+						{isFavorited
+							? "已收藏"
+							: "收藏"
+						}
 					</Button>
 				}
 

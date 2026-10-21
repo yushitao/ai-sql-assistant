@@ -1,6 +1,13 @@
 import axios from "axios";
 
+import {
+	markErrorAsHandled,
+	NETWORK_ERROR_EVENT,
+} from "./errorHandling";
+
 let isRedirectingToLogin = false;
+
+let networkErrorEventSent = false;
 
 const client = axios.create({
 	baseURL: "http://127.0.0.1:8000/api/v1",
@@ -40,7 +47,14 @@ client.interceptors.response.use(
 */
 
 client.interceptors.response.use(
-	(response) => response,
+	(response) => {
+		/*
+		 * 只要收到后端响应，
+		 * 就说明服务器已经恢复连接。
+		 */
+		networkErrorEventSent = false;
+		return response;
+	},
 
 	(error: unknown) => {
 		if (!axios.isAxiosError(error)) {
@@ -55,12 +69,41 @@ client.interceptors.response.use(
 			"/auth/login",
 		);
 
+		/*
+		 * 没有response表示请求没有收到
+		 * HTTP响应，通常是后端停止、
+		 * 连接被拒绝或网络中断。
+		 */
+		if (!error.response) {
+			markErrorAsHandled(error);
+
+			if (!networkErrorEventSent) {
+				networkErrorEventSent = true;
+
+				window.dispatchEvent(
+					new CustomEvent(
+						NETWORK_ERROR_EVENT,
+					),
+				);
+
+				window.setTimeout(() => {
+					networkErrorEventSent = false;
+				},
+				3000,
+				);
+			}
+
+			return Promise.reject(error);
+		}
+
 		if (
 			status === 401 &&
 			!isLoginRequest &&
 			!isRedirectingToLogin
 		) {
 			isRedirectingToLogin = true;
+
+			markErrorAsHandled(error);
 
 			localStorage.removeItem(
 				"access_token",

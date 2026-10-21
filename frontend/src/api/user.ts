@@ -19,3 +19,16 @@ export async function getCurrentUser():
 		return response.data;
 	}
 
+export async function changePassword(
+	currentPassword: string,
+	newPassword: string,
+) {
+	await client.put(
+		"/users/me/password",
+		{
+			current_password: currentPassword,
+			new_password: newPassword,
+		},
+	);
+}
+

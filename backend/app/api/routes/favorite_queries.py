@@ -41,6 +41,24 @@ def create_favorite_query(
             detail="收藏问题不能为空",
         )
 
+    existing = db.scalar(
+        select(
+            FavoriteQuery,
+        ).where(
+            FavoriteQuery.user_id
+            == current_user.id,
+
+            FavoriteQuery.question
+            == request_data.question,
+        )
+    )
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="该问题已收藏",
+        )
+
     favorite = FavoriteQuery(
         user_id=current_user.id,
         title=normalized_title,
