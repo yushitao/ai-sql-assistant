@@ -118,6 +118,11 @@ client.interceptors.response.use(
 				"登陆状态已失效，请重新登陆",
 			);
 
+			sessionStorage.setItem(
+				"auth_notice_type",
+				"token_expired",
+			);
+
 			if (
 				window.location.pathname
 				!== "/login"

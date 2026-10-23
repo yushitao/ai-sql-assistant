@@ -710,8 +710,17 @@ function ChatPage() {
 			"token_type",
 		);
 
+		localStorage.removeItem(
+			"auth_notice",
+		);
+		
+		localStorage.removeItem(
+			"auth_notice_type",
+		);
+
 		navigate("/login", {
 			replace: true,
+			state: null,
 		});
 	};
 
@@ -748,13 +757,23 @@ function ChatPage() {
 			{currentUser?.role
 				?.toUpperCase() ===
 				"ADMIN" && (
-					<Button
-						onClick={() => {
-							navigate("/admin/audits");
-						}}
-					>
-						管理员审计
-					</Button>
+					<>
+						<Button
+							onClick={() => {
+								navigate("/admin/audits");
+							}}
+						>
+							管理员审计
+						</Button>
+
+						<Button
+							onClick={() => {
+								navigate("/admin/users");
+							}}
+						>
+							用户管理
+						</Button>
+					</>
 				)
 			}
 

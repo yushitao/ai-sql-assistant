@@ -49,17 +49,36 @@ function LoginPage() {
 				"auth_notice",
 			);
 
-		if (!authNotice) {
-			return;
-		}
+		const authNoticeType =
+			sessionStorage.getItem(
+				"auth_notice_type",
+			);
 
-		message.warning(
-			authNotice,
-		);
+		/*
+		 * 先删除，确保提示只消费一次。
+		 */
 
 		sessionStorage.removeItem(
 			"auth_notice",
 		);
+
+		sessionStorage.removeItem(
+			"auth_notice_type",
+		);
+
+		if (
+			!authNotice ||
+				authNoticeType !==
+				"token_expired"
+		) {
+			return;
+		}
+
+		message.warning({
+			key: "auth-notice",
+			content: authNotice,
+			duration: 3,
+		});
 	}, []);
 
 	const handleLogin = async() => {

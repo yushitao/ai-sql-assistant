@@ -13,6 +13,8 @@ import ProtectedRoute from "./ProtectedRoute";
 
 import AdminAuditPage from "../pages/AdminAuditPage";
 
+import AdminUsersPage from "../pages/AdminUsersPage";
+
 function AppRouter() {
 	return (
 		<BrowserRouter>
@@ -57,6 +59,13 @@ function AppRouter() {
 					<Route
 						path="/admin/audits"
 						element={<AdminAuditPage />}
+					/>
+
+					<Route
+						path="/admin/users"
+						element={
+							<AdminUsersPage />
+						}
 					/>
 				</Route>
 
