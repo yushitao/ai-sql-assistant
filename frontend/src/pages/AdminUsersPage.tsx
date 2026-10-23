@@ -276,6 +276,29 @@ function AdminUsersPage() {
 			const normalizedEmail =
 				email.trim();
 
+			if (!normalizedEmail) {
+				messageApi.warning(
+					"请输入邮箱",
+				);
+
+				return;
+			}
+
+			const emailPattern =
+				/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+			if (
+				!emailPattern.test(
+					normalizedEmail,
+				)
+			) {
+				messageApi.warning(
+					"请输入有效的邮箱地址",
+				);
+				
+				return;
+			}
+
 			if (!normalizedUsername) {
 				messageApi.warning(
 					"请输入用户名",

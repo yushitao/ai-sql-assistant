@@ -25,6 +25,8 @@ function ProtectedRoute() {
 export default ProtectedRoute;
  */
 
+import axios from "axios";
+
 import {
 	useEffect,
 	useState,
@@ -78,6 +80,11 @@ function ProtectedRoute({
 	] = useState(false);
 
 	const [
+		serverError,
+		setServerError,
+	] = useState(false);
+
+	const [
 		retryKey,
 		setRetryKey,
 	] = useState(0);
@@ -98,7 +105,10 @@ function ProtectedRoute({
 		const checkCurrentUser =
 			async () => {
 				setChecking(true);
+
 				setNetworkError(false);
+
+				setServerError(false);
 
 				try {
 					const user =
@@ -107,7 +117,26 @@ function ProtectedRoute({
 					if (!cancelled) {
 						setCurrentUser(user);
 					}
-				} catch {
+				} catch (error: unknown) {
+					if (cancelled) {
+						return;
+					}
+					/*
+					 * 没有 HTTP response, 才是真正的：
+					 *
+					 * 后端关闭
+					 * ERROR_CONNECTION_REFUSED
+					 * 网络断开
+					 */
+					if (
+						axios.isAxiosError(error)
+						&& !error.response
+					) {
+						setNetworkError(true);
+
+						return;
+					}
+
 					/*
 					 * 401已由client.ts的全局拦截器处理：
 					 * 清除Token并跳转/login。
@@ -115,6 +144,26 @@ function ProtectedRoute({
 					 * 这里的错误主要用于处理：
 					 * 后端关闭、网路不可用等情况。
 					 */
+
+					if (
+						axios.isAxiosError(error)
+						&& error.response?.status
+							=== 401
+					) {
+						return;
+					}
+
+					/*
+					 * 已经收到服务器响应，
+					 * 但服务器返回了 4xx / 5xx。
+					 *
+					 * 这不属于网络断开。
+					 */
+
+					setServerError(true);
+
+					/*
+					 *
 					if (
 						!cancelled &&
 						localStorage.getItem(
@@ -123,6 +172,7 @@ function ProtectedRoute({
 					) {
 						setNetworkError(true);
 					}
+					 */
 				} finally {
 					if (!cancelled) {
 						setChecking(false);
@@ -188,6 +238,31 @@ function ProtectedRoute({
 						}}
 					>
 						重新连接
+					</Button>
+				}
+			/>
+		);
+	}
+
+	if (serverError) {
+		return (
+			<Result
+				status="500"
+				title="服务器处理请求失败"
+				subTitle={
+					"服务器已经连接，但用户信息请求处理失败。请稍后重试。"
+				}
+				extra={
+					<Button
+						type="primary"
+						onClick={() => {
+							setRetryKey(
+								(current) =>
+								current + 1,
+							);
+						}}
+					>
+						重试
 					</Button>
 				}
 			/>
