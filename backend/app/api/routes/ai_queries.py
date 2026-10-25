@@ -14,6 +14,7 @@ from app.schemas.ai_query import (
     AIQueryResponse,
 )
 from app.services.ai_query_service import (
+    AIQueryExecutionError,
     UnsafeGeneratedSQLError,
     process_ai_query,
 )
@@ -38,7 +39,7 @@ def query_data_with_ai(
     current_user: CurrentUser,
 ) -> AIQueryResponse:
     try:
-        result = process_ai_query(
+        result, token_usage = process_ai_query(
             db=db,
             question=request_data.question,
         )
@@ -97,6 +98,9 @@ def query_data_with_ai(
             row_count=result.row_count,
             execution_time_ms=result.execution_time_ms,
             error_message=None,
+            prompt_tokens=token_usage.prompt_tokens,
+            completion_tokens=token_usage.completion_tokens,
+            total_tokens=token_usage.total_tokens,
         )
 
         db.add(audit)
@@ -132,6 +136,9 @@ def query_data_with_ai(
             row_count=0,
             execution_time_ms=None,
             error_message=str(exc),
+            prompt_tokens=exc.token_usage.prompt_tokens,
+            completion_tokens=exc.token_usage.completion_tokens,
+            total_tokens=exc.token_usage.completion_tokens,
         )
 
         db.add(audit)
@@ -147,6 +154,37 @@ def query_data_with_ai(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(f"大模型生成的SQL未通过安全验证：{exc}"),
+        ) from exc
+
+    except AIQueryExecutionError as exc:
+        db.rollback()
+
+        audit = SQLAudit(
+            user_id=current_user.id,
+            question=request_data.question,
+            sql_text=exc.generated_sql,
+            validation_passed=True,
+            execution_success=False,
+            row_count=0,
+            execution_time_ms=None,
+            error_message=str(exc.database_error),
+            prompt_tokens=exc.token_usage.prompt_tokens,
+            completion_tokens=exc.token_usage.completion_tokens,
+            total_tokens=exc.token_usage.total_tokens,
+        )
+
+        db.add(audit)
+        db.commit()
+
+        logger.exception(
+            "AI generated SQL execution failed: user_id=%s, sql=%r",
+            current_user.id,
+            exc.generated_sql,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AI生成的SQL执行失败",
         ) from exc
 
     except SQLAlchemyError as exc:

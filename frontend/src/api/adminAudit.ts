@@ -11,6 +11,9 @@ export interface SQLAudit {
 	row_count: number | null;
 	execution_time_ms: number | null;
 	error_message: string | null;
+	prompt_tokens: number | null;
+	completion_tokens: number | null;
+	total_tokens: number | null;
 	created_at: string;
 }
 

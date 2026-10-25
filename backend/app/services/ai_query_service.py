@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.session import engine
+from app.schemas.llm import TokenUsage
 from app.services.result_summarizer import (
     summarize_query_result,
 )
@@ -21,9 +23,24 @@ class UnsafeGeneratedSQLError(Exception):
         self,
         message: str,
         generated_sql: str,
+        token_usage: TokenUsage,
     ) -> None:
         super().__init__(message)
         self.generated_sql = generated_sql
+        self.token_usage = token_usage.model_copy(deep=True)
+
+class AIQueryExecutionError(Exception):
+    def __init__(
+        self,
+        message: str,
+        generated_sql: str,
+        token_usage: TokenUsage,
+        database_error: str,
+    ) -> None:
+        super().__init__(message)
+        self.generated_sql = generated_sql
+        self.token_usage = token_usage.model_copy(deep=True)
+        self.database_error=database_error
 
 
 @dataclass
@@ -41,15 +58,22 @@ class AIQueryResult:
 def process_ai_query(
     db: Session,
     question: str,
-) -> AIQueryResult:
+) -> tuple[
+    AIQueryResult,
+    TokenUsage,
+]:
+    total_usage = TokenUsage()
+
     schema_data = get_allowed_database_schema(engine)
 
     schema_text = format_schema_for_llm(schema_data)
 
-    generated = generate_sql(
+    generated, sql_usage = generate_sql(
         question=question,
         schema_text=schema_text,
     )
+
+    total_usage.add(sql_usage)
 
     validation = validate_readonly_sql(generated.sql)
 
@@ -57,14 +81,30 @@ def process_ai_query(
         raise UnsafeGeneratedSQLError(
             message=validation.message,
             generated_sql=generated.sql,
+            token_usage=total_usage,
         )
 
-    execution = execute_readonly_sql(
-        db=db,
-        sql=generated.sql,
-    )
+    #验证sql执行错误的临时代码
+    #test_sql=("SELECT definitely_missing_column FROM test_results")
 
-    summary = summarize_query_result(
+    try:
+        execution = execute_readonly_sql(
+            db=db,
+            sql=generated.sql,
+            #sql=test_sql,
+        )
+
+    except SQLAlchemyError as exc:
+        raise AIQueryExecutionError(
+            message=(
+                "AI生成的SQL执行失败"
+            ),
+            generated_sql=generated.sql,
+            token_usage=total_usage,
+            database_error=str(exc)
+        ) from exc
+
+    summary, summary_usage = summarize_query_result(
         question=question,
         sql=generated.sql,
         columns=execution.columns,
@@ -73,7 +113,11 @@ def process_ai_query(
         truncated=execution.truncated,
     )
 
-    return AIQueryResult(
+    total_usage.add(
+        summary_usage
+    )
+
+    result = AIQueryResult(
         generated_sql=generated.sql,
         sql_explanation=generated.explanation,
         summary=summary,
@@ -83,3 +127,9 @@ def process_ai_query(
         execution_time_ms=execution.execution_time_ms,
         truncated=execution.truncated,
     )
+
+    return (
+        result,
+        total_usage,
+    )
+

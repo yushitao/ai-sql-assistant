@@ -58,6 +58,21 @@ class SQLAudit(Base):
         nullable=True,
     )
 
+    prompt_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    completion_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    total_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

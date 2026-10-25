@@ -513,6 +513,34 @@ function AdminAuditPage() {
 		},
 
 		{
+			title: "Tokens",
+			dataIndex: "total_tokens",
+			key: "total_tokens",
+			width: 110,
+			render: (
+				value:
+					| number
+					| null,
+			) => {
+				if (value == null) {
+					return (
+						<Typography.Text
+							type="secondary"
+						>
+							-
+						</Typography.Text>
+					);
+				}
+
+				return (
+					<Typography.Text>
+						{value.toLocaleString()}
+					</Typography.Text>
+				);
+			},
+		},
+
+		{
 			title: "SQL",
 			render: (
 				_: unknown,
@@ -1298,6 +1326,118 @@ function AdminAuditPage() {
 					{selectedAudit?.sql_text}
 				</div>
 
+				<Typography.Title
+					level={5}
+					style={{
+						marginTop: 16,
+					}}
+				>
+					Token 使用情况
+				</Typography.Title>
+
+				<div
+					style={{
+						display: "grid",
+						gridTemplateColumns:
+							"repeat(3, 1fr)",
+						gap: 12,
+						marginBottom: 16,
+					}}
+				>
+					<div
+						style={{
+							padding: 12,
+							background: "#fafafa",
+							border: "1px solid #d9d9d9",
+							borderRadius: 6,
+						}}
+					>
+						<Typography.Text
+							type="secondary"
+						>
+							输入 Tokens
+						</Typography.Text>
+
+						<div
+							style={{
+								marginTop: 4,
+								fontSize: 20,
+								fontWeight: 600,
+							}}
+						>
+							{selectedAudit
+								?.prompt_tokens == null
+									? "-"
+									: selectedAudit
+									.prompt_tokens
+									.toLocaleString()}
+						</div>
+					</div>
+
+					<div
+						style={{
+							padding: 12,
+							background: "#fafafa",
+							border: "1px solid #d9d9d9",
+							borderRadius: 6,
+						}}
+					>
+						<Typography.Text
+							type="secondary"
+						>
+							输出 Tokens
+						</Typography.Text>
+
+						<div
+							style={{
+								marginTop: 4,
+								fontSize: 20,
+								fontWeight: 600,
+							}}
+						>
+							{selectedAudit
+								?.completion_tokens
+								== null
+									? "-"
+									: selectedAudit
+									.completion_tokens
+									.toLocaleString()}
+						</div>
+					</div>
+
+					<div
+						style={{
+							padding: 12,
+							background: "#e6f4ff",
+							border: "1px solid #91caff",
+							borderRadius: 6,
+						}}
+					>
+						<Typography.Text
+							type="secondary"
+						>
+							总 Tokens
+						</Typography.Text>
+
+						<div
+							style={{
+								marginTop: 4,
+								fontSize: 20,
+								fontWeight: 700,
+								color: "#1677ff",
+							}}
+						>
+							{
+								selectedAudit
+									?.total_tokens == null
+										? "-"
+										: selectedAudit
+										.total_tokens
+										.toLocaleString()}
+						</div>
+					</div>
+				</div>
+				
 				<Typography.Title
 					level={5}
 					style={{ marginTop: 16 }}

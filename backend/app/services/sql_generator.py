@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.schemas.ai_query import GeneratedSQL
+from app.schemas.llm import TokenUsage
 from app.services.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
@@ -111,7 +112,10 @@ def build_sql_generation_prompt(
 def generate_sql(
     question: str,
     schema_text: str,
-) -> GeneratedSQL:
+) -> tuple[
+    GeneratedSQL,
+    TokenUsage,
+]:
     client = get_llm_client()
 
     messages = build_sql_generation_prompt(
@@ -127,13 +131,33 @@ def generate_sql(
             max_tokens=800,
         )
     except APITimeoutError as exc:
-        raise SQLGenerationError("大模型请求超市，请稍后重试") from exc
+        raise SQLGenerationError("大模型请求超时，请稍后重试") from exc
     except APIConnectionError as exc:
         raise SQLGenerationError("无法连接大模型服务，请检查网络") from exc
     except APIError as exc:
         logger.exception("LLM API request failed")
 
         raise SQLGenerationError("大模型服务调用失败") from exc
+
+    usage = response.usage
+
+    token_usage = TokenUsage(
+        prompt_tokens=(
+            usage.prompt_tokens
+            if usage is not None
+            else 0
+        ),
+        completion_tokens=(
+            usage.completion_tokens
+            if usage is not None
+            else 0
+        ),
+        total_tokens=(
+            usage.total_tokens
+            if usage is not None
+            else 0
+        ),
+    )
 
     content = response.choices[0].message.content
 
@@ -143,6 +167,13 @@ def generate_sql(
     parsed_content = extract_json_object(content)
 
     try:
-        return GeneratedSQL.model_validate(parsed_content)
+        generated_sql = (
+            GeneratedSQL.model_validate(parsed_content)
+        )
     except ValidationError as exc:
         raise SQLGenerationError("大模型返回内容缺少sql或explanation字段") from exc
+    return (
+            generated_sql,
+            token_usage,
+    )
+

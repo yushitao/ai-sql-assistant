@@ -5,6 +5,7 @@ from typing import Any
 from openai import APIError
 
 from app.core.config import settings
+from app.schemas.llm import TokenUsage
 from app.services.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ def create_fallback_summary(
         return "查询执行成功，但没有找到符合条件的数据。"
 
     if truncated:
-        return f"差选返回前{row_count}条记录，实际结果可能包含更多数据。"
+        return f"查询返回前{row_count}条记录，实际结果可能包含更多数据。"
 
     return f"查询成功，共返回{row_count}条结果。"
 
@@ -30,9 +31,17 @@ def summarize_query_result(
     rows: list[dict[str, Any]],
     row_count: int,
     truncated: bool,
-) -> str:
+) -> tuple[
+    str,
+    TokenUsage,
+]:
+    token_usage = TokenUsage()
+
     if row_count == 0:
-        return "查询执行成功，但没有找到符合条件的数据。"
+        return (
+            "查询执行成功，但没有找到符合条件的数据。",
+            token_usage,
+        )
 
     client = get_llm_client()
 
@@ -91,20 +100,51 @@ def summarize_query_result(
             max_tokens=400,
         )
 
+        usage = response.usage
+
+        token_usage = TokenUsage(
+            prompt_tokens=(
+                usage.prompt_tokens
+                if usage is not None
+                else 0
+            ),
+            completion_tokens=(
+                usage.completion_tokens
+                if usage is not None
+                else 0
+            ),
+            total_tokens=(
+                usage.total_tokens
+                if usage is not None
+                else 0
+            ),
+        )
+
         content = response.choices[0].message.content
 
         if not content:
-            return create_fallback_summary(
+            summary = create_fallback_summary(
                 row_count=row_count,
                 truncated=truncated,
             )
+        else:
+            summary = content.strip()
 
-        return content.strip()
+        return (
+            summary,
+            token_usage,
+        )
 
     except APIError:
         logger.exception("Failed to summarize SQL query result")
 
-        return create_fallback_summary(
+        summary = create_fallback_summary(
             row_count=row_count,
             truncated=truncated,
         )
+
+        return (
+            summary,
+            token_usage,
+        )
+

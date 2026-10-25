@@ -27,6 +27,9 @@ class SQLAuditResponse(BaseModel):
     row_count: int
     execution_time_ms: float | None
     error_message: str | None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
