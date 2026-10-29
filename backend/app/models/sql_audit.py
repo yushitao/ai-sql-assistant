@@ -73,6 +73,12 @@ class SQLAudit(Base):
         nullable=True,
     )
 
+    repair_count: Mapped[int] =mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

@@ -14,6 +14,7 @@ export interface SQLAudit {
 	prompt_tokens: number | null;
 	completion_tokens: number | null;
 	total_tokens: number | null;
+	repair_count: number;
 	created_at: string;
 }
 

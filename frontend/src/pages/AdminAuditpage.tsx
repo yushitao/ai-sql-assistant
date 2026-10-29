@@ -541,6 +541,30 @@ function AdminAuditPage() {
 		},
 
 		{
+			title: "自动修复",
+			dataIndex: "repair_count",
+			key: "repair_count",
+			width: 110,
+			render: (
+				value: number,
+			) => {
+				if (value === 0) {
+					return (
+						<Tag>
+							未修复
+						</Tag>
+					);
+				}
+
+				return (
+					<Tag color="orange">
+						修复{value}次
+					</Tag>
+				);
+			},
+		},
+
+		{
 			title: "SQL",
 			render: (
 				_: unknown,
@@ -1438,6 +1462,56 @@ function AdminAuditPage() {
 					</div>
 				</div>
 				
+				<Typography.Title
+					level={5}
+					style={{
+						marginTop: 16,
+					}}
+				>
+					自动修复
+				</Typography.Title>
+
+				<div
+					style={{
+						padding: 12,
+						marginBottom: 16,
+						background:
+							selectedAudit
+							?.repair_count
+								? "#fff7e6"
+								: "#fafafa",
+						border:
+							selectedAudit
+							?.repair_count
+								? "1px solid #ffd591"
+								: "1px solid #d9d9d9",
+						borderRadius: 6,
+					}}
+				>
+					{selectedAudit
+						?.repair_count ? (
+							<Typography.Text>
+								该查询经过
+								{" "}
+								<Typography.Text
+									strong
+								>
+									{selectedAudit
+										?.repair_count}
+								</Typography.Text>
+								{" "}
+								次自动修复后完成。
+							</Typography.Text>
+						) : (
+						<Typography.Text
+							type="secondary"
+						>
+							该查询首次生成的SQL
+							直接执行成功。
+						</Typography.Text>
+						)}
+				</div>
+
 				<Typography.Title
 					level={5}
 					style={{ marginTop: 16 }}

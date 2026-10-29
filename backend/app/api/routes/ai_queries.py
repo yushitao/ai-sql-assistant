@@ -101,6 +101,7 @@ def query_data_with_ai(
             prompt_tokens=token_usage.prompt_tokens,
             completion_tokens=token_usage.completion_tokens,
             total_tokens=token_usage.total_tokens,
+            repair_count=result.repair_count,
         )
 
         db.add(audit)
@@ -139,6 +140,7 @@ def query_data_with_ai(
             prompt_tokens=exc.token_usage.prompt_tokens,
             completion_tokens=exc.token_usage.completion_tokens,
             total_tokens=exc.token_usage.completion_tokens,
+            repair_count=exc.repair_count,
         )
 
         db.add(audit)
@@ -171,20 +173,22 @@ def query_data_with_ai(
             prompt_tokens=exc.token_usage.prompt_tokens,
             completion_tokens=exc.token_usage.completion_tokens,
             total_tokens=exc.token_usage.total_tokens,
+            repair_count=exc.repair_count,
         )
 
         db.add(audit)
         db.commit()
 
         logger.exception(
-            "AI generated SQL execution failed: user_id=%s, sql=%r",
+            "AI generated SQL execution failed, after automatic repair: user_id=%s, repair_count=%s, sql=%r",
             current_user.id,
+            exc.repair_count,
             exc.generated_sql,
         )
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI生成的SQL执行失败",
+            detail="AI生成的SQL经过自动修复后仍执行失败",
         ) from exc
 
     except SQLAlchemyError as exc:

@@ -251,6 +251,7 @@ def get_all_sql_history(
             prompt_tokens=audit.prompt_tokens,
             completion_tokens=audit.completion_tokens,
             total_tokens=audit.total_tokens,
+            repair_count=audit.repair_count,
             created_at=audit.created_at,
         )
         for audit, user in rows

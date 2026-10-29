@@ -108,6 +108,160 @@ def build_sql_generation_prompt(
         },
     ]
 
+def build_sql_repair_prompt(
+    question: str,
+    failed_sql: str,
+    database_error: str,
+    schema_text: str,
+) -> list[dict[str,str]]:
+    system_prompt = """
+你是一名SQLite数据分析专家。
+
+这是一次SQL修复任务。
+
+之前生成的SQL在数据库执行时失败。
+请根据用户原始问题、数据库结构、
+失败SQL和数据库错误信息修复SQL。
+
+必须遵守一下规则：
+1. 只能生成一条SELECT语句。
+2. 只能查询提供的白名单表。
+3. 禁止查询users、sql_audits和SQLite系统表。
+4. 禁止INSERT、UPDATE、DELETE、DROP、ALTER、CREATE。
+5. 禁止PRAGMA、ATTACH、DETACH和多语句。
+6. 不要使用SQL注释。
+7. 不要使用Markdown代码块。
+8. 必须针对数据库错误修复问题。
+9. 不要重复返回明显会产生同一错误的SQL。
+10. 除非统计本身只返回少量行，否则使用LIMIT 100.
+11. 只返回合法JSON，不要返回其他文字。
+
+必须返回以下JSON格式:
+    {
+        "sql": "修复后的SQL",
+        "explanation": "对修复内容的简要中文说明"
+    }
+    """.strip()
+    user_prompt = f"""
+数据库类型:
+SQLite
+
+允许访问的数据库结构:
+{schema_text}
+
+用户原始问题:
+{question}
+
+执行失败的SQL:
+{failed_sql}
+
+数据库返回的错误:
+{database_error}
+
+请根据数据库结构和错误信息修复SQL。
+    """.strip()
+
+    return [
+        {
+            "role": "system",
+            "content": system_prompt,
+        },
+        {
+            "role": "user",
+            "content": user_prompt,
+        },
+    ]
+
+def repair_sql(
+    question: str,
+    failed_sql: str,
+    database_error: str,
+    schema_text: str,
+) -> tuple[
+    GeneratedSQL,
+    TokenUsage,
+]:
+    client = get_llm_client()
+
+    messages = (
+        build_sql_repair_prompt(
+            question=question,
+            failed_sql=failed_sql,
+            database_error=database_error,
+            schema_text=schema_text,
+        )
+    )
+
+    try:
+        response = (
+            client.chat.completions.create(
+                model=settings.llm_model,
+                messages=messages,
+                temperature=0,
+                max_tokens=800,
+            )
+        )
+
+    except APITimeoutError as exc:
+        raise SQLGenerationError(
+            "大模型SQL修复请求超时，请稍后重试"
+        ) from exc
+
+    except APIConnectionError as exc:
+        raise SQLGenerationError(
+            "无法连接大模型服务，SQL自动修复失败"
+        ) from exc
+
+    except APIError as exc:
+        logger.exception(
+            "LLM SQL repair request failed"
+        )
+
+        raise SQLGenerationError(
+            "大模型SQL自动修复失败"
+        ) from exc
+
+    usage = response.usage
+
+    token_usage = TokenUsage(
+        prompt_tokens=(
+            usage.prompt_tokens
+            if usage is not None
+            else 0
+        ),
+        completion_tokens=(
+            usage.completion_tokens
+            if usage is not None
+            else 0
+        ),
+        total_tokens=(
+            usage.total_tokens
+            if usage is not None
+            else 0
+        ),
+    )
+
+    content = response.choices[0].message.content
+
+    if not content:
+        raise SQLGenerationError(
+            "大模型SQL修复返回内容为空"
+        )
+
+    parsed_content = extract_json_object(content)
+
+    try:
+        repaired_sql = GeneratedSQL.model_validate(parsed_content)
+
+    except ValidationError as exc:
+        raise SQLGenerationError(
+            "大模型SQL修复结果缺少sql或explanation字段"
+        ) from exc
+
+    return(
+        repaired_sql,
+        token_usage,
+    )
 
 def generate_sql(
     question: str,
