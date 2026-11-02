@@ -1,7 +1,18 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+)
 
 from app.db.base import Base
 
@@ -77,6 +88,21 @@ class SQLAudit(Base):
         Integer,
         nullable=False,
         default=0,
+    )
+
+    selected_tables: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    selected_table_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    schema_fallback_used: Mapped[bool | None] = mapped_column(
+        Boolean,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

@@ -252,6 +252,9 @@ def get_all_sql_history(
             completion_tokens=audit.completion_tokens,
             total_tokens=audit.total_tokens,
             repair_count=audit.repair_count,
+            selected_tables=audit.selected_tables,
+            selected_table_count=audit.selected_table_count,
+            schema_fallback_used=audit.schema_fallback_used,
             created_at=audit.created_at,
         )
         for audit, user in rows

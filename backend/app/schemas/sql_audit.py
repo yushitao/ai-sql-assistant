@@ -31,6 +31,9 @@ class SQLAuditResponse(BaseModel):
     completion_tokens: int | None = None
     total_tokens: int | None = None
     repair_count: int = 0
+    selected_tables: str | None = None
+    selected_table_count: int | None = None
+    chema_fallback_used: bool | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

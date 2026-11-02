@@ -9,6 +9,9 @@ from app.schemas.llm import TokenUsage
 from app.services.result_summarizer import (
     summarize_query_result,
 )
+from app.services.schema_selector import (
+    select_relevant_schema,
+)
 from app.services.schema_service import (
     format_schema_for_llm,
     get_allowed_database_schema,
@@ -27,11 +30,15 @@ class UnsafeGeneratedSQLError(Exception):
         generated_sql: str,
         token_usage: TokenUsage,
         repair_count: int,
+        selected_tables: list[str],
+        schema_fallback_used: bool,
     ) -> None:
         super().__init__(message)
         self.generated_sql = generated_sql
         self.token_usage = token_usage.model_copy(deep=True)
         self.repair_count=repair_count
+        self.selected_tables = list(selected_tables)
+        self.schema_fallback_used = schema_fallback_used
 
 class AIQueryExecutionError(Exception):
     def __init__(
@@ -41,12 +48,16 @@ class AIQueryExecutionError(Exception):
         token_usage: TokenUsage,
         database_error: str,
         repair_count: int,
+        selected_tables: list[str],
+        schema_fallback_used: bool,
     ) -> None:
         super().__init__(message)
         self.generated_sql = generated_sql
         self.token_usage = token_usage.model_copy(deep=True)
         self.database_error=database_error
         self.repair_count = repair_count
+        self.selected_tables = list(selected_tables)
+        self.schema_fallback_used = schema_fallback_used
 
 
 @dataclass
@@ -60,6 +71,8 @@ class AIQueryResult:
     execution_time_ms: float
     truncated: bool
     repair_count: int
+    selected_tables: list[str]
+    schema_fallback_used: bool
 
 
 def process_ai_query(
@@ -71,9 +84,40 @@ def process_ai_query(
 ]:
     total_usage = TokenUsage()
 
+    #Schema智能选择，更新代码
     schema_data = get_allowed_database_schema(engine)
 
-    schema_text = format_schema_for_llm(schema_data)
+    schema_selection = (
+        select_relevant_schema(
+            question=question,
+            schema_data=schema_data,
+            max_tables=5,
+        )
+    )
+
+    schema_text = (
+        format_schema_for_llm(
+            schema_selection
+            .schema_data
+        )
+    )
+
+    print(
+        "SCHEMA SELECTION:",
+        {
+            "selected_tables":
+            schema_selection
+            .selected_tables,
+            "table_scores":
+            schema_selection
+            .table_scores,
+            "used_fallback":
+            schema_selection
+            .used_fallback,
+        },
+    )
+    
+    #schema_text = format_schema_for_llm(schema_data)
 
     generated, sql_usage = generate_sql(
         question=question,
@@ -99,6 +143,8 @@ def process_ai_query(
                 generated_sql=current_sql,
                 token_usage=total_usage,
                 repair_count=repair_count,
+                selected_tables=schema_selection.selected_tables,
+                schema_fallback_used=schema_selection.used_fallback,
             )
 
         try:
@@ -139,6 +185,8 @@ def process_ai_query(
                     token_usage=total_usage,
                     database_error=database_error,
                     repair_count=repair_count,
+                    selected_tables=schema_selection.selected_tables,
+                    schema_fallback_used=schema_selection.used_fallback,
                 ) from exc
 
             repaired, repair_usage = (
@@ -212,6 +260,8 @@ def process_ai_query(
         execution_time_ms=execution.execution_time_ms,
         truncated=execution.truncated,
         repair_count = repair_count,
+        selected_tables=schema_selection.selected_tables,
+        schema_fallback_used=schema_selection.used_fallback,
     )
 
     return (

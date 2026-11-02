@@ -15,6 +15,9 @@ export interface SQLAudit {
 	completion_tokens: number | null;
 	total_tokens: number | null;
 	repair_count: number;
+	selected_tables: string | null;
+	selected_table_count: number | null;
+	schema_fallback_used: boolean | null;
 	created_at: string;
 }
 

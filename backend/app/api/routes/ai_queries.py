@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -102,6 +103,12 @@ def query_data_with_ai(
             completion_tokens=token_usage.completion_tokens,
             total_tokens=token_usage.total_tokens,
             repair_count=result.repair_count,
+            selected_tables=json.dumps(
+                result.selected_tables,
+                ensure_ascii=False,
+            ),
+            selected_table_count=len(result.selected_tables),
+            schema_fallback_used=result.schema_fallback_used,
         )
 
         db.add(audit)
@@ -141,6 +148,12 @@ def query_data_with_ai(
             completion_tokens=exc.token_usage.completion_tokens,
             total_tokens=exc.token_usage.completion_tokens,
             repair_count=exc.repair_count,
+            selected_tables=json.dumps(
+                exc.selected_tables,
+                ensure_ascii=False,
+            ),
+            selected_table_count=len(exc.selected_tables),
+            schema_fallback_used=exc.schema_fallback_used,
         )
 
         db.add(audit)
@@ -174,6 +187,12 @@ def query_data_with_ai(
             completion_tokens=exc.token_usage.completion_tokens,
             total_tokens=exc.token_usage.total_tokens,
             repair_count=exc.repair_count,
+            selected_tables=json.dumps(
+                exc.selected_tables,
+                ensure_ascii=False,
+            ),
+            selected_table_count=len(exc.selected_tables),
+            schema_fallback_used=exc.schema_fallback_used,
         )
 
         db.add(audit)

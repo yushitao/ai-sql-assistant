@@ -48,6 +48,32 @@ import {
 	getCurrentUser,
 } from "../api/user";
  */
+function parseSelectedTables(
+	value: string | null,
+): string[] {
+	if (!value) {
+		return [];
+	}
+
+	try {
+		const parsed:
+			unknown = JSON.parse(value);
+
+		if(
+			Array.isArray(parsed)
+			&& parsed.every(
+			(item) =>
+			typeof item
+			=== "string",
+			)
+		) {
+			return parsed;
+		}
+	} catch {
+		return [];
+	}
+	return [];
+}
 
 function AdminAuditPage() {
 	const navigate = useNavigate();
@@ -499,6 +525,71 @@ function AdminAuditPage() {
 					失败
 				</Tag>
 			),
+		},
+
+		{
+			title: "Schema",
+			key: "selected_tables",
+			width: 170,
+			render: (
+				_value: unknown,
+				record: SQLAudit,
+			) => {
+				const tables =
+					parseSelectedTables(
+						record.selected_tables,
+					);
+
+				if (
+					record.selected_table_count
+					== null
+				) {
+					return (
+						<Typography.Text
+							type="secondary"
+						>
+							未统计
+						</Typography.Text>
+					);
+				}
+
+				if (
+					record.schema_fallback_used
+				) {
+					return (
+						<Tag color="gold">
+							完整Schema
+						</Tag>
+					);
+				}
+
+				if (
+					tables.length === 0
+				) {
+					return "-";
+				}
+
+				return (
+					<Space
+						size={[
+							4,
+							4,
+						]}
+						wrap
+					>
+						{tables.map(
+							(tableName) => (
+								<Tag
+									color="blue"
+									key={tableName}
+								>
+									{tableName}
+								</Tag>
+							),
+						)}
+					</Space>
+				);
+			},
 		},
 
 		{
@@ -1510,6 +1601,124 @@ function AdminAuditPage() {
 							直接执行成功。
 						</Typography.Text>
 						)}
+				</div>
+
+				<Typography.Title
+					level={5}
+					style={{
+						marginTop: 16,
+					}}
+				>
+					Schema选择
+				</Typography.Title>
+
+				<div
+					style={{
+						padding: 12,
+						marginBottom: 16,
+						background: "#fafafa",
+						border: "1px solid #d9d9d9",
+						borderRadius: 6,
+					}}
+				>
+					{selectedAudit
+						?.selected_table_count
+						== null ? (
+							<Typography.Text
+								type="secondary"
+							>
+								该历史记录没有
+								Schema选择信息。
+							</Typography.Text>
+						) : (
+							<>
+								<div
+									style={{
+										marginBottom: 8,
+									}}
+								>
+									<Typography.Text
+										type="secondary"
+									>
+										选择方式：
+									</Typography.Text>
+									{selectedAudit
+										.schema_fallback_used ? (
+											<Tag
+												color="gold"
+												style={{
+													marginLeft: 8,
+												}}
+											>
+												完整Schema回退
+											</Tag>
+										) : (
+										<Tag
+											color="green"
+											style={{
+												marginLeft: 8,
+											}}
+										>
+											智能选择
+										</Tag>
+										)}
+								</div>
+
+								<div
+									style={{
+										marginBottom: 8,
+									}}
+								>
+									<Typography.Text
+										type="secondary"
+									>
+										选择表数量：
+									</Typography.Text>
+
+									<Typography.Text
+										strong
+										style={{
+											marginLeft: 8,
+										}}
+									>
+										{selectedAudit
+											.selected_table_count}
+									</Typography.Text>
+									</div>
+
+									<div>
+										<Typography.Text
+											type="secondary"
+										>
+											选择的表：
+										</Typography.Text>
+										<Space
+										size={[
+											4,
+											4,
+										]}
+											wrap
+											style={{
+												marginLeft: 8,
+											}}
+										>
+										{parseSelectedTables(
+											selectedAudit
+											.selected_tables,
+										).map(
+										(tableName) => (
+											<Tag
+												color="blue"
+												key={tableName}
+											>
+												{tableName}
+											</Tag>
+										),
+										)}
+										</Space>
+									</div>
+							</>
+					)}
 				</div>
 
 				<Typography.Title
