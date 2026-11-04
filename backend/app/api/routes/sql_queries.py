@@ -19,7 +19,13 @@ from app.models.feedback import FeedbackType, QueryFeedback
 from app.models.sql_audit import SQLAudit
 from app.models.user import User
 from app.schemas.sql_audit import (
+    AIQualityAnalysisResponse,
+    AIQualityDailyTrendItem,
+    AIQualityMetricsResponse,
+    AISchemaQualityAnalysis,
+    AITokenQualityAnalysis,
     AuditQualityTrendItem,
+    RepairCountDistribution,
     SatisfactionTrendItem,
     SQLAuditHistoryResponse,
     SQLAuditPageResponse,
@@ -51,6 +57,18 @@ def save_audit(
 ) -> None:
     db.add(audit)
     db.commit()
+
+def calculate_rate(
+    numerator: int,
+    denominator: int,
+) -> float:
+    if denominator == 0:
+        return 0.0
+
+    return round(
+        numerator / denominator * 100,
+        2,
+    )
 
 
 @router.post(
@@ -749,6 +767,693 @@ def get_top_questions(
         )
         for row in rows
     ]
+
+@router.get(
+    "/admin/ai-quality",
+    response_model=(
+        AIQualityMetricsResponse
+    ),
+)
+def get_ai_quality_metrics(
+    db: DatabaseSession,
+    _admin_user: AdminUser,
+) -> AIQualityMetricsResponse:
+    ai_query_filter = (
+        SQLAudit.question.is_not(None)
+    )
+
+    aggregate_statement = (
+        select(
+            func.count(
+                SQLAudit.id
+            ).label("total_queries"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            (
+                                SQLAudit
+                                .execution_success
+                                .is_(True)
+                            )
+                            & (
+                                SQLAudit
+                                .repair_count
+                                == 0
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("first_try_success_count"),
+
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            SQLAudit
+                            .repair_count
+                            > 0,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("repair_triggered_count"),
+
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            (
+                                SQLAudit
+                                .repair_count
+                                > 0
+                            )
+                            & (
+                                SQLAudit
+                                .execution_success
+                                .is_(True)
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("repair_success_count"),
+
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            SQLAudit
+                            .execution_success
+                            .is_(True),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("final_success_count"),
+
+            func.coalesce(
+                func.avg(
+                    SQLAudit
+                    .repair_count
+                ),
+                0.0,
+            ).label("average_repair_count"),
+        )
+        .where(ai_query_filter)
+    )
+
+    aggregate_result = (
+        db.execute(aggregate_statement).one()
+    )
+
+    total_queries = int(
+        aggregate_result
+        .total_queries
+        or 0
+    )
+
+    first_try_success_count = int(
+        aggregate_result
+        .first_try_success_count
+        or 0
+    )
+
+    repair_triggered_count = int(
+        aggregate_result
+        .repair_triggered_count
+        or 0
+    )
+
+    repair_success_count = int(
+        aggregate_result
+        .repair_success_count
+        or 0
+    )
+
+    final_success_count = int(
+        aggregate_result
+        .final_success_count
+        or 0
+    )
+
+    average_repair_count = round(
+        float(
+            aggregate_result
+            .average_repair_count
+            or 0.0
+        ),
+        2,
+    )
+
+    distribution_statement = (
+        select(
+            SQLAudit.repair_count,
+            func.count(
+                SQLAudit.id
+            ).label("query_count"),
+        )
+        .where(ai_query_filter)
+        .group_by(SQLAudit.repair_count)
+    )
+
+    distribution_rows = (
+        db.execute(
+            distribution_statement
+        )
+        .all()
+    )
+
+    distribution_map = {
+        int(repair_count or 0): int(query_count or 0)
+        for (
+            repair_count,
+            query_count,
+        ) in distribution_rows
+    }
+
+    return (
+        AIQualityMetricsResponse(
+            total_queries=total_queries,
+            first_try_success_count=first_try_success_count,
+            first_try_success_rate=(
+                calculate_rate(
+                    first_try_success_count,
+                    total_queries,
+                )
+            ),
+            repair_triggered_count=repair_triggered_count,
+            repair_trigger_rate=(
+                calculate_rate(
+                    repair_triggered_count,
+                    total_queries,
+                )
+            ),
+            repair_success_count=repair_success_count,
+            repair_success_rate=(
+                calculate_rate(
+                    repair_success_count,
+                    repair_triggered_count,
+                )
+            ),
+            final_success_count=final_success_count,
+            final_success_rate=(
+                calculate_rate(
+                    final_success_count,
+                    total_queries,
+                )
+            ),
+            average_repair_count=average_repair_count,
+            repair_count_distribution=(
+                RepairCountDistribution(
+                    no_repair=(
+                        distribution_map.get(
+                                  0,
+                                  0,
+                        )
+                    ),
+                    repaired_once=(
+                        distribution_map.get(
+                            1,
+                            0,
+                        )
+                    ),
+                    repaired_twice=(
+                        distribution_map.get(
+                            2,
+                            0,
+                        )
+                    ),
+                )
+            ),
+        )
+)
+
+
+@router.get(
+    "/admin/ai-quality-analysis",
+    response_model=(
+        AIQualityAnalysisResponse
+    ),
+)
+def get_ai_quality_analysis(
+    db: DatabaseSession,
+    _admin_user: AdminUser,
+    days: int = 30,
+) -> AIQualityAnalysisResponse:
+    if days not in {
+        7,
+        30,
+        90,
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "days仅支持7、30或90"
+            ),
+        )
+
+    start_date = (
+        datetime.now(timezone.utc).date()
+        - timedelta(
+            days=days - 1
+        )
+    )
+
+    base_filter = (
+        SQLAudit.question.is_not(None)
+        & (
+            func.date(SQLAudit.created_at)
+            >= start_date.isoformat()
+        )
+    )
+
+    daily_statement = (
+        select(
+            func.date(
+                SQLAudit.created_at
+            ).label(
+                "query_date"
+            ),
+            func.count(
+                SQLAudit.id
+            ).label(
+                "total_queries"
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            (
+                                SQLAudit
+                                .execution_success
+                                .is_(True)
+                            )
+                            & (
+                                SQLAudit
+                                .repair_count
+                                == 0
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label(
+                "first_try_success_count"
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            SQLAudit
+                            .repair_count
+                            > 0,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label(
+                "repair_triggered_count"
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            SQLAudit
+                            .execution_success
+                            .is_(True),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label(
+                "final_success_count"
+            ),
+            func.coalesce(
+                func.avg(
+                    SQLAudit.total_tokens
+                ),
+                0.0,
+            ).label(
+                "average_total_tokens"
+            ),
+            func.count(
+                SQLAudit.total_tokens
+            ).label(
+                "token_sample_count"
+            ),
+        )
+        .where(base_filter)
+        .group_by(
+            func.date(SQLAudit.created_at)
+        )
+        .order_by(
+            func.date(SQLAudit.created_at)
+        )
+    )
+    daily_rows = (
+        db.execute(
+            daily_statement
+        )
+        .all()
+    )
+
+    daily_map = {}
+    for row in daily_rows:
+        row_total = int(
+            row.total_queries
+            or 0
+        )
+
+        daily_map[
+            str(row.query_date)
+        ] = (
+            AIQualityDailyTrendItem(
+                date=str(row.query_date),
+                total_queries=(row_total),
+                first_try_success_rate=(
+                    calculate_rate(
+                        int(
+                            row
+                            .first_try_success_count
+                            or 0
+                        ),
+                        row_total,
+                    )
+                ),
+                repair_trigger_rate=(
+                    calculate_rate(
+                        int(
+                            row
+                            .repair_triggered_count
+                            or 0
+                        ),
+                        row_total,
+                    )
+                ),
+                final_success_rate=(
+                    calculate_rate(
+                        int(
+                            row
+                            .final_success_count
+                            or 0
+                        ),
+                        row_total,
+                    )
+                ),
+                average_total_tokens=(
+                    round(
+                        float(
+                            row
+                            .average_total_tokens
+                            or 0.0
+                        ),
+                        2,
+                    )
+                ),
+                token_sample_count=(
+                    int(
+                        row.token_sample_count
+                        or 0
+                    )
+                ),
+            )
+        )
+
+        daily_trend = []
+
+        for offset in range(days):
+            current_date = (
+                start_date
+                + timedelta(days=offset)
+            )
+
+            date_text = (
+                current_date
+                .isoformat()
+            )
+
+            daily_trend.append(
+                daily_map.get(
+                    date_text,
+                    AIQualityDailyTrendItem(
+                        date=date_text,
+                        total_queries=0,
+                        first_try_success_rate=0.0,
+                        repair_trigger_rate=0.0,
+                        final_success_rate=0.0,
+                        average_total_tokens=0.0,
+                        token_sample_count=0,
+                    ),
+                )
+            )
+
+        schema_statement = (
+            select(
+                func.count(
+                    SQLAudit.id
+                ).label(
+                    "total_queries"
+                ),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                SQLAudit
+                                .schema_fallback_used
+                                .is_(True),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label(
+                    "fallback_count"
+                ),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                SQLAudit
+                                .schema_fallback_used
+                                .is_(False),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label(
+                    "smart_selection_count"
+                ),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                (
+                                    SQLAudit
+                                    .schema_fallback_used
+                                    .is_(False)
+                                )
+                                & (
+                                    SQLAudit
+                                    .execution_success
+                                    .is_(True)
+                                ),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label(
+                    "smart_selection_success_count"
+                ),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                (
+                                    SQLAudit
+                                    .schema_fallback_used
+                                    .is_(True)
+                                )
+                                & (
+                                    SQLAudit
+                                    .execution_success
+                                    .is_(True)
+                                ),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label(
+                    "fallback_success_count"
+                ),
+                func.coalesce(
+                    func.avg(
+                        SQLAudit
+                        .selected_table_count
+                    ),
+                    0.0,
+                ).label(
+                    "average_selected_table_count"
+                ),
+            )
+            .where(base_filter)
+            .where(
+                SQLAudit
+                .schema_fallback_used
+                .is_not(None)
+            )
+        )
+
+        schema_row = (
+            db.execute(schema_statement)
+            .one()
+        )
+
+        schema_total = int(
+            schema_row.total_queries
+            or 0
+        )
+
+        fallback_count = int(
+            schema_row.fallback_count
+            or 0
+        )
+
+        smart_selection_count = int(
+            schema_row.smart_selection_count
+            or 0
+        )
+
+        smart_success_count = int(
+            schema_row.smart_selection_success_count
+            or 0
+        )
+
+        fallback_success_count = int(
+            schema_row.fallback_success_count
+            or 0
+        )
+
+        token_statement = (
+            select(
+                SQLAudit.repair_count,
+                func.coalesce(
+                    func.avg(
+                        SQLAudit.total_tokens
+                    ),
+                    0.0,
+                ).label(
+                    "average_tokens"
+                ),
+            )
+            .where(
+                SQLAudit.total_tokens
+                .is_not(None)
+            )
+            .group_by(SQLAudit.repair_count)
+        )
+        
+        token_rows = (
+            db.execute(token_statement)
+            .all()
+        )
+
+        token_map = {
+            int(
+                row.repair_count
+                or 0
+            ): round(
+                float(
+                    row.average_tokens
+                    or 0.0
+                ),
+                2,
+            )
+            for row in token_rows
+        }
+
+        return AIQualityAnalysisResponse(
+            days=days,
+            daily_trend=daily_trend,
+            schema_analysis=(
+                AISchemaQualityAnalysis(
+                    fallback_count=fallback_count,
+                    fallback_rate=(
+                        calculate_rate(
+                            fallback_count,
+                            schema_total,
+                        )
+                    ),
+                    smart_selection_count=smart_selection_count,
+                    smart_selection_success_rate=(
+                        calculate_rate(
+                            smart_success_count,
+                            smart_selection_count,
+                        )
+                    ),
+                    fallback_success_rate=(
+                        calculate_rate(
+                            fallback_success_count,
+                            fallback_count,
+                        )
+                    ),
+                    average_selected_table_count=(
+                        round(
+                            float(
+                                schema_row
+                                .average_selected_table_count
+                                or 0.0
+                            ),
+                            2,
+                        )
+                    ),
+                )
+            ),
+            token_analysis=(
+                AITokenQualityAnalysis(
+                    first_try_average_tokens=(
+                        token_map.get(
+                            0,
+                            0.0,
+                        )
+                    ),
+                    repaired_once_average_tokens=(
+                        token_map.get(
+                            1,
+                            0.0,
+                        )
+                    ),
+                    repaired_twice_average_tokens=(
+                        token_map.get(
+                            2,
+                            0.0,
+                        )
+                    ),
+                )
+            ),
+    )
 
 
 @router.get(

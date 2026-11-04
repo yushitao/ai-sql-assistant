@@ -70,6 +70,73 @@ export interface AuditHistoryParams {
 	offset?: number;
 }
 
+export interface RepairCountDistribution{
+	no_repair: number;
+	repaired_once: number;
+	repaired_twice: number;
+}
+
+export interface AIQualityMetrics {
+	total_queries: number;
+
+	first_try_success_count: number;
+	first_try_success_rate: number;
+
+	repair_triggered_count: number;
+	repair_trigger_rate: number;
+
+	repair_success_count: number;
+	repair_success_rate: number;
+
+	final_success_count: number;
+	final_success_rate: number;
+
+	average_repair_count: number;
+
+	repair_count_distribution: RepairCountDistribution;
+}
+
+export interface AIQualityDailyTrendItem {
+	date: string;
+	total_queries: number;
+
+	first_try_success_rate: number;
+	repair_trigger_rate: number;
+	final_success_rate: number;
+
+	averate_total_tokens: number;
+	token_sample_count: number;
+}
+
+export interface AISchemaQualityAnalysis {
+	fallback_count: number;
+	fallback_rate: number;
+
+	smart_selection_count: number;
+	smart_selection_success_rate: number;
+
+	fallback_success_rate: number;
+
+	average_selected_table_count: number;
+}
+
+export interface AITokenQualityAnalysis {
+	first_try_average_tokens: number;
+	repaired_once_average_tokens: number;
+	repaired_twice_average_tokens: number;
+}
+
+export interface AIQualityAnalysis {
+	days: number;
+
+	daily_trend: AIQualityDailyTrendItem[];
+
+	schema_analysis: AISchemaQualityAnalysis;
+
+	token_analysis: AITokenQualityAnalysis;
+}
+
+
 export async function getAuditHistory(
 	params?: AuditHistoryParams,
 ):
@@ -175,4 +242,30 @@ export async function exportAuditHistory(
 
 	return response.data;
 }
+
+export async function getAIQualityMetrics():
+	Promise<AIQualityMetrics> {
+		const response =
+			await client.get<AIQualityMetrics>(
+				"/sql/admin/ai-quality",
+			);
+		return response.data;
+	}
+
+export async function getAIQualityAnalysis(
+	days: 7 | 30 | 90,
+): Promise<AIQualityAnalysis> {
+	const response =
+		await client.get<AIQualityAnalysis>(
+			"/sql/admin/ai-quality-analysis",
+			{
+				params: {
+					days,
+				},
+			},
+		);
+
+	return response.data;
+}
+
 

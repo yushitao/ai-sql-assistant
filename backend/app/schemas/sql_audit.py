@@ -77,3 +77,64 @@ class TopQuestionItem(BaseModel):
     question: str
     count: int
 
+class RepairCountDistribution(BaseModel):
+    no_repair: int = 0
+    repaired_once: int = 0
+    repaired_twice: int = 0
+
+class AIQualityMetricsResponse(BaseModel):
+    total_queries: int
+
+    first_try_success_count: int
+    first_try_success_rate: float
+
+    repair_triggered_count: int
+    repair_trigger_rate: float
+
+    repair_success_count: int
+    repair_success_rate: float
+
+    final_success_count: int
+    final_success_rate: float
+
+    average_repair_count: float
+
+    repair_count_distribution: RepairCountDistribution
+
+class AIQualityDailyTrendItem(BaseModel):
+    date: str
+    total_queries: int
+
+    first_try_success_rate: float
+    repair_trigger_rate: float
+    final_success_rate: float
+
+    average_total_tokens: float
+    token_sample_count: int
+
+class AISchemaQualityAnalysis(BaseModel):
+    fallback_count: int
+    fallback_rate: float
+
+    smart_selection_count: int
+
+    smart_selection_success_rate: float
+    fallback_success_rate: float
+
+    average_selected_table_count: float
+
+class AITokenQualityAnalysis(BaseModel):
+    first_try_average_tokens: float
+    repaired_once_average_tokens: float
+    repaired_twice_average_tokens: float
+
+class AIQualityAnalysisResponse(BaseModel):
+    days: int
+
+    daily_trend: list[AIQualityDailyTrendItem]
+
+    schema_analysis: (AISchemaQualityAnalysis)
+
+    token_analysis: (AITokenQualityAnalysis)
+
+

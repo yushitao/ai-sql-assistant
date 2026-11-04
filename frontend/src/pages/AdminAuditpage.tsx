@@ -6,6 +6,7 @@ import ReactECharts
 from "echarts-for-react";
 
 import {
+	useCallback,
 	useEffect,
 	useState,
 } from "react";
@@ -21,14 +22,18 @@ import {
 	Radio,
 	Row,
 	Space,
+	Skeleton,
 	Statistic,
 	Table,
 	Tag,
 	Typography,
+	type TableColumnsType,
 } from "antd";
 
 import {
 	exportAuditHistory,
+	getAIQualityAnalysis,
+	getAIQualityMetrics,
 	getAuditHistory,
 	getAuditStats,
 	//getAuditTrend,
@@ -37,6 +42,9 @@ import {
 	getTopQuestions,
 	type SQLAudit,
 	type SQLAuditStats,
+	type AIQualityAnalysis,
+	type AIQualityDailyTrendItem,
+	type AIQualityMetrics,
 	//type SQLAuditTrendItem,
 	//type SatisfactionTrendItem,
 	type AuditQualityTrendItem,
@@ -73,6 +81,12 @@ function parseSelectedTables(
 		return [];
 	}
 	return [];
+}
+
+function formatRate(
+	value: number,
+): string {
+	return `${value.toFixed(2)}%`;
 }
 
 function AdminAuditPage() {
@@ -148,7 +162,7 @@ function AdminAuditPage() {
 	const [
 		trendDays,
 		setTrendDays,
-	] = useState(30);
+	] = useState<7 | 30 | 90>(30);
 
 	//同时包含查询量和满意率
 	const [
@@ -172,6 +186,27 @@ function AdminAuditPage() {
 		topQuestionsLoading,
 		setTopQuestionsLoading,
 	] = useState(false);
+
+	const[
+		aiQualityMetrics,
+		setAIQualityMetrics,
+	] = useState<AIQualityMetrics | null>(null);
+
+	const[
+		aiQualityLoading,
+		setAIQualityLoading,
+	] = useState(false);
+
+	const [
+		qualityAnalysis,
+		setQualityAnalysis,
+	] = useState<AIQualityAnalysis | null>(null);
+
+	const [
+		qualityAnalysisLoading,
+		setQualityAnalysisLoading,
+	] = useState(false);
+
 
 	/*
 	 * 改用查询量和满意率双轴图，其它接口代提这个接口
@@ -321,6 +356,50 @@ function AdminAuditPage() {
 			}
 		};
 
+	const loadAIQualityMetrics =
+		useCallback(
+			async () => {
+				setAIQualityLoading(true);
+
+				try {
+					const data =
+						await getAIQualityMetrics();
+
+					setAIQualityMetrics(data);
+				} catch {
+					message.error(
+						"加载AI查询质量指标失败",
+					);
+				} finally {
+					setAIQualityLoading(false);
+				}
+			},
+			[],
+		);
+
+	const loadAIQualityAnalysis =
+		useCallback(
+			async (
+				days: 7 | 30 | 90,
+			) => {
+				setQualityAnalysisLoading(true);
+
+				try {
+					const data =
+						await getAIQualityAnalysis(days);
+
+					setQualityAnalysis(data);
+				} catch {
+					message.error(
+						"加载AI质量分析失败",
+					);
+				} finally {
+					setQualityAnalysisLoading(false);
+				}
+			},
+			[],
+		);
+
 	const handleExport =
 		async () => {
 			try {
@@ -449,6 +528,93 @@ function AdminAuditPage() {
 		currentPage,
 		pageSize,
 	]);
+
+	useEffect(() => {
+		void loadAIQualityMetrics();
+	}, [loadAIQualityMetrics,]);
+
+	useEffect(() => {
+		void loadAIQualityAnalysis(
+			trendDays,
+		);
+	}, [
+		loadAIQualityAnalysis,
+		trendDays,
+	],);
+	
+	const qualityTrendColumns:
+		TableColumnsType<
+			AIQualityDailyTrendItem
+		> = [
+			{
+				title: "日期",
+				dataIndex: "date",
+				key: "date",
+				width: 120,
+			},
+			{
+				title: "查询数",
+				dataIndex: "total_queries",
+				key: "total_queries",
+				width: 90,
+			},
+			{
+				title: "首次成功率",
+				dataIndex: "first_try_success_rate",
+				key: "first_try_success_rate",
+				width: 120,
+				render: (
+					value: number,
+				) =>
+				`${value.toFixed(2)}%`,
+			},
+			{
+				title: "修复触发率",
+				dataIndex: "repair_trigger_rate",
+				key: "repair_trigger_rate",
+				width: 120,
+				render: (
+					value: number,
+				) =>
+				`${value.toFixed(2)}%`,
+			},
+			{
+				title: "最终成功率",
+				dataIndex: "final_success_rate",
+				key: "final_success_rate",
+				width: 120,
+				render: (
+					value: number,
+				) =>
+				`${value.toFixed(2)}%`,
+			},
+			{
+				title: "平均Tokens",
+				dataIndex: "average_total_tokens",
+				key: "average_total_tokens",
+				width: 130,
+				render: (
+					value: number,
+				) =>
+				value.toLocaleString(),
+			},
+			{
+				title: "Token样本",
+				dataIndex: "token_sample_count",
+				key: "token_sample_count",
+				width: 110,
+				render: (
+					value: number,
+					record,
+				) => (
+					<Typography.Text>
+						{value}
+						{" / "}
+						{record.total_queries}
+					</Typography.Text>
+				),
+			},
+		];
 
 	const columns = [
 		{
@@ -705,10 +871,12 @@ function AdminAuditPage() {
 
 					<Button
 						loading={
-							loading ||
-								statsLoading ||
-								trendLoading ||
-								topQuestionsLoading
+							loading
+								|| statsLoading
+								|| trendLoading
+								|| topQuestionsLoading
+								|| aiQualityLoading
+								|| qualityAnalysisLoading
 						}
 						onClick={() => {
 							void loadAudits()
@@ -716,6 +884,8 @@ function AdminAuditPage() {
 							void loadQualityTrend();
 
 							void loadTopQuestions();
+							void loadAIQualityMetrics();
+							void loadAIQualityAnalysis(trendDays);
 						}
 
 						}
@@ -833,6 +1003,601 @@ function AdminAuditPage() {
 				</Col>
 			</Row>
 
+			<Card
+				title="AI查询质量"
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				<Skeleton
+					active
+					loading={aiQualityLoading}
+				>
+					{aiQualityMetrics ? (
+						<>
+							<Row
+								gutter={[
+									16,
+									16,
+								]}
+							>
+								<Col
+									xs={24}
+									sm={12}
+									lg={8}
+									xl={5}
+								>
+									<Card
+										size="small"
+										variant="outlined"
+									>
+										<Statistic
+											title="首次成功率"
+											value={
+												aiQualityMetrics
+												.first_try_success_rate
+											}
+											precision={2}
+											suffix="%"
+										/>
+
+										<Typography.Text
+											type="secondary"
+										>
+											{
+												aiQualityMetrics
+												.first_try_success_count
+											}
+											{" / "}
+											{
+												aiQualityMetrics
+												.total_queries
+											}
+											{"次查询"}
+										</Typography.Text>
+									</Card>
+								</Col>
+
+								<Col
+									xs={24}
+									sm={12}
+									lg={8}
+									xl={5}
+								>
+									<Card
+										size="small"
+										variant="outlined"
+									>
+										<Statistic
+											title="修复触发率"
+											value={
+												aiQualityMetrics
+												.repair_trigger_rate
+											}
+											precision={2}
+											suffix="%"
+										/>
+
+										<Typography.Text
+											type="secondary"
+										>
+											{
+												aiQualityMetrics
+												.repair_triggered_count
+											}
+											{" / "}
+											{
+												aiQualityMetrics
+												.total_queries
+											}
+											{"次查询"}
+										</Typography.Text>
+									</Card>
+								</Col>
+
+								<Col
+									xs={24}
+									sm={12}
+									lg={8}
+									xl={5}
+								>
+									<Card
+										size="small"
+										variant="outlined"
+									>
+										<Statistic
+											title="修复成功率"
+											value={
+												aiQualityMetrics
+												.repair_triggered_count
+												=== 0
+													? 0
+													: aiQualityMetrics
+													.repair_success_rate
+											}
+											precision={2}
+											suffix="%"
+										/>
+
+										<Typography.Text
+											type="secondary"
+										>
+											{aiQualityMetrics
+												.repair_triggered_count
+												=== 0
+													? "暂无修复请求"
+													: (
+														`${aiQualityMetrics
+															.repair_success_count
+														} / ${aiQualityMetrics
+														.repair_triggered_count
+														}次修复`
+													)}
+										</Typography.Text>
+									</Card>
+								</Col>
+
+								<Col
+									xs={24}
+									sm={12}
+									lg={8}
+									xl={5}
+								>
+									<Card
+										size="small"
+										variant="outlined"
+									>
+										<Statistic
+											title="最终成功率"
+											value={
+												aiQualityMetrics
+												.final_success_rate
+											}
+											precision={2}
+											suffix="%"
+											styles={{
+												content: {
+													color: "#3f8600",
+												},
+											}}
+										/>
+
+										<Typography.Text
+											type="secondary"
+										>
+											{
+												aiQualityMetrics
+												.final_success_count
+											}
+											{" / "}
+											{
+												aiQualityMetrics
+												.total_queries
+											}
+											{"次查询"}
+										</Typography.Text>
+									</Card>
+								</Col>
+
+								<Col
+									xs={24}
+									sm={12}
+									lg={8}
+									xl={4}
+								>
+									<Card
+										size="small"
+										variant="outlined"
+									>
+										<Statistic
+											title="平均修复次数"
+											value={
+												aiQualityMetrics
+												.average_repair_count
+											}
+											precision={2}
+										/>
+
+										<Typography.Text
+											type="secondary"
+										>
+											每次查询
+										</Typography.Text>
+									</Card>
+								</Col>
+							</Row>
+
+							<div
+								style={{
+									marginTop: 20,
+								}}
+							>
+								<Typography.Title
+									level={5}
+								>
+									修复次数分布
+								</Typography.Title>
+
+								<Row
+									gutter={[
+										16,
+										16,
+									]}
+								>
+									<Col
+										xs={24}
+										md={8}
+									>
+										<Card
+											size="small"
+										>
+											<Statistic
+												title="未修复"
+												value={
+													aiQualityMetrics
+													.repair_count_distribution
+													.no_repair
+												}
+												suffix="次"
+											/>
+										</Card>
+									</Col>
+
+									<Col
+										xs={24}
+										md={8}
+									>
+										<Card
+											size="small"
+										>
+											<Statistic
+												title="修复1次"
+												value={
+													aiQualityMetrics
+													.repair_count_distribution
+													.repaired_once
+												}
+												suffix="次"
+											/>
+										</Card>
+									</Col>
+
+									<Col
+										xs={24}
+										md={8}
+									>
+										<Card
+											size="small"
+										>
+											<Statistic
+												title="修复2次"
+												value={
+													aiQualityMetrics
+													.repair_count_distribution
+													.repaired_twice
+												}
+												suffix="次"
+											/>
+										</Card>
+									</Col>
+								</Row>
+							</div>
+
+							<div
+								style={{
+									marginTop: 16,
+									padding: 12,
+									background: "#f6ffed",
+									border: "1px solid #b7eb8f",
+									borderRadius: 6,
+								}}
+							>
+								<Typography.Text>
+									自动修复使最终成功率从
+									{" "}
+									<Typography.Text
+										strong
+									>
+										{formatRate(
+											aiQualityMetrics
+											.first_try_success_rate,
+										)}
+									</Typography.Text>
+									{" "}
+									提升到
+									{" "}
+									<Typography.Text
+										strong
+										style={{
+											color: "#3f8600",
+										}}
+									>
+										{formatRate(
+											aiQualityMetrics
+											.final_success_rate,
+										)}
+									</Typography.Text>
+									，提高了
+									{" "}
+									<Typography.Text
+										strong
+									>
+										{(
+											aiQualityMetrics
+											.final_success_rate
+											- aiQualityMetrics
+											.first_try_success_rate
+										).toFixed(2)}
+										{" "}
+										个百分点
+									</Typography.Text>
+									。
+								</Typography.Text>
+							</div>
+						</>
+					) : (
+					<Typography.Text
+						type="secondary"
+					>
+						暂无AI查询质量数据
+					</Typography.Text>
+					)}
+				</Skeleton>
+			</Card>
+
+			<Card
+				title={
+					`最近${trendDays}天AI质量趋势与交叉分析`
+				}
+				loading={
+					qualityAnalysisLoading
+				}
+				style={{
+					marginBottom: 16,
+				}}
+			>
+				{qualityAnalysis ? (
+					<>
+						<Typography.Title
+							level={5}
+						>
+							Schema选择质量
+						</Typography.Title>
+
+						<Row
+							gutter={[
+								16,
+								16,
+							]}
+						>
+							<Col
+								xs={24}
+								sm={12}
+								lg={6}
+							>
+								<Card
+									size="small"
+									variant="outlined"
+								>
+									<Statistic
+										title="Schema 回退率"
+										value={
+											qualityAnalysis
+											.schema_analysis
+											.fallback_rate
+										}
+										precision={2}
+										suffix="%"
+									/>
+
+									<Typography.Text
+										type="secondary"
+									>
+										{
+											qualityAnalysis
+											.schema_analysis
+											.fallback_count
+										}
+										{"次回退"}
+									</Typography.Text>
+								</Card>
+							</Col>
+
+							<Col
+								xs={24}
+								sm={12}
+								lg={6}
+							>
+								<Card
+									size="small"
+									variant="outlined"
+								>
+									<Statistic
+										title="智能选表成功率"
+										value={
+											qualityAnalysis
+											.schema_analysis
+											.smart_selection_success_rate
+										}
+										precision={2}
+										suffix="%"
+									/>
+
+									<Typography.Text
+										type="secondary"
+									>
+										{
+											qualityAnalysis
+											.schema_analysis
+											.smart_selection_count
+										}
+										{"次智能选择"}
+									</Typography.Text>
+								</Card>
+							</Col>
+
+							<Col
+								xs={24}
+								sm={12}
+								lg={6}
+							>
+								<Card
+									size="small"
+									variant="outlined"
+								>
+									<Statistic
+										title="Fallback成功率"
+										value={
+											qualityAnalysis
+											.schema_analysis
+											.fallback_success_rate
+										}
+										precision={2}
+										suffix="%"
+									/>
+								</Card>
+							</Col>
+
+							<Col
+								xs={24}
+								sm={12}
+								lg={6}
+							>
+								<Card
+									size="small"
+									variant="outlined"
+								>
+									<Statistic
+										title="平均选择表数"
+										value={
+											qualityAnalysis
+											.schema_analysis
+											.average_selected_table_count
+										}
+										precision={2}
+									/>
+								</Card>
+							</Col>
+						</Row>
+
+						<Typography.Title
+							level={5}
+							style={{
+								marginTop: 24,
+							}}
+						>
+							自动修复Token成本
+						</Typography.Title>
+
+						<Row
+							gutter={[
+								16,
+								16,
+							]}
+						>
+							<Col
+								xs={24}
+								md={8}
+							>
+								<Card
+									size="small"
+									variant="outlined"
+								>
+									<Statistic
+										title="首次成功平均Tokens"
+										value={
+											qualityAnalysis
+											.token_analysis
+											.first_try_average_tokens
+										}
+										precision={0}
+									/>
+								</Card>
+							</Col>
+
+							<Col
+								xs={24}
+								md={8}
+							>
+								<Card
+									size="small"
+									variant="outlined"
+								>
+									<Statistic
+										title="修复1次平均Tokens"
+										value={
+											qualityAnalysis
+											.token_analysis
+											.repaired_once_average_tokens
+										}
+										precision={0}
+									/>
+								</Card>
+							</Col>
+
+							<Col
+								xs={24}
+								md={8}
+							>
+								<Card
+									size="small"
+									variant="outlined"
+								>
+									<Statistic
+										title="修复2次平均Tokens"
+										value={
+											qualityAnalysis
+											.token_analysis
+											.repaired_twice_average_tokens
+										}
+										precision={0}
+									/>
+								</Card>
+							</Col>
+						</Row>
+
+						<Typography.Title
+							level={5}
+							style={{
+								marginTop: 24,
+							}}
+						>
+							每日质量趋势
+						</Typography.Title>
+
+						<Table<AIQualityDailyTrendItem>
+							rowKey="date"
+							size="small"
+							columns={
+								qualityTrendColumns
+							}
+							dataSource={
+								qualityAnalysis
+								.daily_trend
+							}
+							pagination={{
+								pageSize:
+									trendDays === 90
+										? 15
+										: 10,
+							}}
+							scroll={{
+								x: 900,
+							}}
+						/>
+					</>
+				) : (
+				<Typography.Text
+					type="secondary"
+				>
+					暂无AI质量分析数据
+				</Typography.Text>
+				)}
+			</Card>
+
+
+
+
 			{/*
 	 			* 改用查询量和满意率双轴图，其它接口代提这个接口
 			<Card
@@ -949,7 +1714,7 @@ function AdminAuditPage() {
 							setTrendDays(
 								Number(
 									event.target.value,
-								),
+								) as 7 | 30 | 90,
 							);
 						}}
 					>
